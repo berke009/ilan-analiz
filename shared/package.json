@@ -1,0 +1,6 @@
+{
+  "name": "shared", "type": "module", "main": "src/index.ts",
+  "scripts": { "test": "vitest run" },
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "typescript": "^5.5.0", "vitest": "^3.0.0" }
+}

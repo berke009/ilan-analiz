@@ -1,0 +1,11 @@
+{
+  "name": "sahibinden-arac-analiz",
+  "private": true,
+  "scripts": {
+    "test": "pnpm -r test",
+    "start": "pnpm --filter backend start"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

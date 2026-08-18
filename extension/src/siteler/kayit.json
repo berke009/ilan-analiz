@@ -1,0 +1,16 @@
+[
+  {
+    "ad": "sahibinden",
+    "kok": "https://www.sahibinden.com",
+    "eslesenler": [
+      "https://www.sahibinden.com/*"
+    ]
+  },
+  {
+    "ad": "arabam",
+    "kok": "https://www.arabam.com",
+    "eslesenler": [
+      "https://www.arabam.com/*"
+    ]
+  }
+]

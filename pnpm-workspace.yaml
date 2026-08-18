@@ -1,0 +1,6 @@
+packages:
+  - extension
+  - backend
+  - shared
+allowBuilds:
+  esbuild: true

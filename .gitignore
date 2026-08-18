@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-firefox/
+.env*
+!.env.example
+*.zip
+.DS_Store
