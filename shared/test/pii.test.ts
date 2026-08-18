@@ -36,8 +36,8 @@ describe('e-posta', () => {
 
 describe('IBAN', () => {
   it('maskeler', () => {
-    expect(maskeleMetin('TR33 0006 1005 1978 6457 8413 26')).toBe('[iban]')
-    expect(maskeleMetin('TR330006100519786457841326 hesabı')).toBe('[iban] hesabı')
+    expect(maskeleMetin('TR00 0000 0000 0000 0000 0000 00')).toBe('[iban]')
+    expect(maskeleMetin('TR000000000000000000000000 hesabı')).toBe('[iban] hesabı')
   })
   it('YANLIŞ POZİTİF: TR plaka ibaresi eşleşmez', () => {
     expect(maskeleMetin('TR 34 plakalı')).toBe('TR 34 plakalı')
@@ -94,7 +94,7 @@ describe('plaka', () => {
 
 describe('yapı korunur', () => {
   it('sayı değil, YER TUTUCU bırakır — galeri deseni sinyali ayakta kalır', () => {
-    const s = maskeleMetin('Sahibinden satılık. 0532 123 45 67 - 0555 987 65 43, IBAN: TR33 0006 1005 1978 6457 8413 26')
+    const s = maskeleMetin('Sahibinden satılık. 0532 123 45 67 - 0555 987 65 43, IBAN: TR00 0000 0000 0000 0000 0000 00')
     expect(s).toBe('Sahibinden satılık. [telefon] - [telefon], IBAN: [iban]')
   })
   it('gerçek ilan metni bozulmadan geçer', () => {
@@ -109,7 +109,7 @@ describe('maskeleIlan', () => {
     const ilan = {
       baslik: 'ACİL 0532 123 45 67 SAHİBİNDEN TEMİZ',
       aciklamaText: 'Detay için mail: satici@example.com',
-      ekAlanlar: { 'Motor Gücü': '190 hp', 'Not': 'IBAN TR33 0006 1005 1978 6457 8413 26' }
+      ekAlanlar: { 'Motor Gücü': '190 hp', 'Not': 'IBAN TR00 0000 0000 0000 0000 0000 00' }
     }
     maskeleIlan(ilan)
     expect(ilan.baslik).toBe('ACİL [telefon] SAHİBİNDEN TEMİZ')
