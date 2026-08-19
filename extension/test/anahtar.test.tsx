@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { render } from 'preact'
+import { AiAyarlari } from '../src/ui/Anahtar'
 import {
   anahtarGetir, anahtarKaydet, anahtarSil, anahtarDogrula, anahtarMaskele, VARSAYILAN_MODEL
 } from '../src/anahtar'
@@ -103,49 +105,52 @@ describe('Anahtar arayüzü', () => {
     throw new Error(`bekleKadar: ${ad} 50 turda sağlanmadı`)
   }
 
-  it('anahtar yokken form çıkar, kayıtlıyken maskeli görünür', async () => {
-    const { render } = await import('preact')
-    const { Anahtar } = await import('../src/ui/Anahtar')
+  it('yeni kurulumda yerel AI, mevcut anahtarlı kullanıcıda Gemini açılır', async () => {
     const kok = document.createElement('div')
 
-    render(<Anahtar />, kok)
-    await bekleKadar(() => !!kok.querySelector('#anahtar'), 'form göründü')
-    expect(kok.textContent).toContain('kendi Google Gemini anahtarınla')
+    render(<AiAyarlari />, kok)
+    await bekleKadar(() => (kok.textContent ?? '').includes('Qwen 3.5 4B'), 'yerel ekran')
+    expect(kok.textContent).toContain('API anahtarı gerekmez')
+    expect(kok.querySelector('#anahtar')).toBe(null)
 
     kutu['geminiAnahtar'] = 'AIzaSyABCDEFGHIJKLMNOP1234'
     const kok2 = document.createElement('div')
-    render(<Anahtar />, kok2)
-    await bekleKadar(() => (kok2.textContent ?? '').includes('AIzaSy'), 'kayıtlı ekran')
+    render(<AiAyarlari />, kok2)
+    await bekleKadar(() => (kok2.textContent ?? '').includes('AIzaSy'), 'kayıtlı Gemini ekranı')
     expect(kok2.querySelector('#anahtar')).toBe(null)
     expect(kok2.textContent).toContain('AIzaSy')
-    expect(kok2.textContent).not.toContain('ABCDEFGHIJ')  // ortası gizli
+    expect(kok2.textContent).not.toContain('ABCDEFGHIJ')
   })
 
-  it('geçersiz anahtar KAYDEDİLMEZ, hata gösterilir', async () => {
+  it('geçersiz Gemini anahtarı KAYDEDİLMEZ, hata gösterilir', async () => {
     ;(globalThis as any).fetch = async () => ({ ok: false, status: 400 })
-    const { render } = await import('preact')
-    const { Anahtar } = await import('../src/ui/Anahtar')
     const kok = document.createElement('div')
-    render(<Anahtar />, kok)
-    await bekleKadar(() => !!kok.querySelector('#anahtar'), 'form')
+    render(<AiAyarlari />, kok)
+    await bekleKadar(() => (kok.textContent ?? '').includes('Gemini kullan'), 'yerel ekran')
+    const geminiDugme = [...kok.querySelectorAll('button')]
+      .find(dugme => dugme.textContent === 'Gemini kullan') as HTMLButtonElement
+    geminiDugme.click()
+    await bekleKadar(() => !!kok.querySelector('#anahtar'), 'Gemini formu')
 
     ;(kok.querySelector('#anahtar') as HTMLInputElement).value = 'AIzaSyBozuk'
     kok.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await bekleKadar(() => (kok.textContent ?? '').includes('geçerli değil'), 'hata mesajı')
     expect(kutu['geminiAnahtar']).toBeUndefined()
   })
-
-  it('geçerli anahtar kaydedilir ve ekran hazır durumuna geçer', async () => {
+  it('geçerli Gemini anahtarı kaydedilir ve sağlayıcı seçilir', async () => {
     ;(globalThis as any).fetch = async () => ({ ok: true, status: 200 })
-    const { render } = await import('preact')
-    const { Anahtar } = await import('../src/ui/Anahtar')
     const kok = document.createElement('div')
-    render(<Anahtar />, kok)
-    await bekleKadar(() => !!kok.querySelector('#anahtar'), 'form')
+    render(<AiAyarlari />, kok)
+    await bekleKadar(() => (kok.textContent ?? '').includes('Gemini kullan'), 'yerel ekran')
+    const geminiDugme = [...kok.querySelectorAll('button')]
+      .find(dugme => dugme.textContent === 'Gemini kullan') as HTMLButtonElement
+    geminiDugme.click()
+    await bekleKadar(() => !!kok.querySelector('#anahtar'), 'Gemini formu')
 
     ;(kok.querySelector('#anahtar') as HTMLInputElement).value = 'AIzaSyGecerliAnahtar12345'
     kok.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    await bekleKadar(() => (kok.textContent ?? '').includes('Hazır'), 'hazır ekranı')
+    await bekleKadar(() => kutu['geminiAnahtar'] === 'AIzaSyGecerliAnahtar12345', 'anahtar kaydı')
     expect(kutu['geminiAnahtar']).toBe('AIzaSyGecerliAnahtar12345')
+    expect(kutu['aiSaglayici']).toBe('gemini')
   })
 })

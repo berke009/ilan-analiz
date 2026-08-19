@@ -37,11 +37,22 @@ describe('Panel', () => {
   it('yukleniyor: skeleton', () => {
     expect(cizdir({ asama: 'yukleniyor' }).querySelector('[data-rol="skeleton"]')).not.toBe(null)
   })
+  it('yerel model yüklenirken ilerleme ve açıklama görünür', () => {
+    const k = cizdir({ asama: 'yukleniyor', mesaj: 'Yerel model hazırlanıyor · %42', ilerleme: 0.42 })
+    expect(k.querySelector('[data-rol="yukleniyor"]')?.textContent).toContain('%42')
+    expect((k.querySelector('.modelCubuk span') as HTMLElement).style.width).toBe('42%')
+  })
   it('hata: mesaj + tekrar butonu', () => {
     let tekrarlandi = false
     const k = cizdir({ asama: 'hata', mesaj: 'limit', tekrar: () => { tekrarlandi = true } })
     ;(k.querySelector('[data-rol="tekrar"]') as HTMLButtonElement).click()
     expect(tekrarlandi).toBe(true)
+  })
+  it('WebGPU yoksa tekrar yerine AI ayarları yolunu gösterir', () => {
+    const k = cizdir({ asama: 'hata', mesaj: 'webgpuYok', tekrar: () => {} })
+    expect(k.textContent).toContain('WebGPU kullanılamıyor')
+    expect(k.querySelector('[data-rol="ayar-ac"]')).not.toBe(null)
+    expect(k.querySelector('[data-rol="tekrar"]')).toBe(null)
   })
   it('kmDurum dolu → KİLOMETRE bölümü ve yorum render edilir', () => {
     const k = cizdir({ asama: 'hazir', sonuc })
@@ -163,21 +174,20 @@ describe('alternatif bölümü boş durumu', () => {
   })
 })
 
-// Hesap/kota/ödeme akışı KALKTI: uzantı ücretsiz, kullanıcı kendi anahtarını giriyor.
-// Panelin kota hatasında yapacağı tek iş kalmadı; yerine anahtar kurulumu geldi.
-describe('anahtar kurulum çağrısı', () => {
-  it('anahtar yokken kurulum düğmesi çıkar, "tekrar dene" çıkmaz', () => {
+// Kurulum ve donanım hataları tek AI ayar ekranına yönlenir; geçici hatalar tekrar denenir.
+describe('AI ayarları çağrısı', () => {
+  it('Gemini anahtarı yokken ayar düğmesi çıkar, "tekrar dene" çıkmaz', () => {
     const k = cizdir({ asama: 'hata', mesaj: 'anahtarYok', tekrar: () => {} })
-    expect(k.querySelector('[data-rol="anahtar-ac"]')?.textContent).toBe('Anahtarı gir')
+    expect(k.querySelector('[data-rol="ayar-ac"]')?.textContent).toBe('AI ayarlarını aç')
     expect(k.querySelector('[data-rol="tekrar"]')).toBe(null)
-    expect(k.textContent).toContain('ücretsiz')
-    expect(k.textContent).toContain('kendi Google Gemini anahtarınla')
+    expect(k.textContent).toContain('Yerel AI')
+    expect(k.textContent).toContain('Gemini')
   })
 
-  it('anahtar sorunluysa da kuruluma yönlendirir', () => {
+  it('anahtar sorunluysa da AI ayarlarına yönlendirir', () => {
     const k = cizdir({ asama: 'hata', mesaj: 'anahtarSorunu', tekrar: () => {} })
-    expect(k.querySelector('[data-rol="anahtar-ac"]')).not.toBe(null)
-    expect(k.textContent).toContain('Google AI Studio')
+    expect(k.querySelector('[data-rol="ayar-ac"]')).not.toBe(null)
+    expect(k.textContent).toContain('Anahtarın kabul edilmedi')
   })
 
   // Geçici hatalarda kurulum ekranı GÖSTERİLMEMELİ: anahtar zaten doğru, sorun geçici.
@@ -185,7 +195,7 @@ describe('anahtar kurulum çağrısı', () => {
     for (const kod of ['ag', 'ai', 'hizLimiti']) {
       const k = cizdir({ asama: 'hata', mesaj: kod, tekrar: () => {} })
       expect(k.querySelector('[data-rol="tekrar"]'), kod).not.toBe(null)
-      expect(k.querySelector('[data-rol="anahtar-ac"]'), kod).toBe(null)
+      expect(k.querySelector('[data-rol="ayar-ac"]'), kod).toBe(null)
     }
   })
 

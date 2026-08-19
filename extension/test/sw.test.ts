@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { AnalysisResultSchema } from 'shared'
 import { handleMesaj, eskiDepoyuTemizle } from '../src/sw'
 
 const ilan: any = {
@@ -83,6 +84,20 @@ describe('analiz tamamen tarayıcıda', () => {
     expect(c.veri.fiyatIstatistik).not.toBe(null)      // 5 örnek → istatistik çıkar
     expect(c.veri.kmDurum).not.toBe(null)
     expect(c.veri.kronikSorunlar).toEqual([])          // profil katmanı sunucudaydı
+  })
+
+  it('durum etiketi modelden değil tek skor ölçeğinden türetilir', async () => {
+    depoKur({ geminiAnahtar: 'AIzaSyTest' })
+    const modelCevabi = { ...AI_CEVAP, skor: 4.8, durumEtiketi: 'Makul' }
+    // Test yanıtı Fetch API'nin yalnız Gemini adaptörünün okuduğu yüzeyini sağlar.
+    const fetcher = (async () => geminiYanit(JSON.stringify(modelCevabi))) as unknown as typeof fetch
+    const cevap = await handleMesaj(istek(), fetcher)
+    expect(cevap.ok).toBe(true)
+    if (!cevap.ok) throw new Error(cevap.hata)
+    const sonuc = AnalysisResultSchema.parse(cevap.veri)
+    expect(sonuc.durumEtiketi).toBe('Dikkatli Ol')
+    expect(sonuc.fiyatYorumu).toContain('yeterli benzer ilan verisi yok')
+    expect(sonuc.fiyatYorumu).not.toContain('piyasa altında')
   })
 
   it('hata türleri ayrı kodlara eşlenir — kullanıcı ne yapacağını bilsin', async () => {

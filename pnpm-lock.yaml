@@ -32,6 +32,9 @@ importers:
 
   extension:
     dependencies:
+      '@mlc-ai/web-llm':
+        specifier: ^0.2.84
+        version: 0.2.84
       preact:
         specifier: ^10.24.0
         version: 10.29.8
@@ -385,6 +388,9 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
+  '@mlc-ai/web-llm@0.2.84':
+    resolution: {integrity: sha512-hrOWzK4/nGNmgoRKT8pgVmZZ2oEPpbblIWQOwpqNyvK2dysHw3KVB1gNJOuRcQfKOPhucEhX1NJzXzgMDnwSCQ==}
+
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     resolution: {integrity: sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==}
     engines: {node: ^22.20 || ^24.12 || >=25}
@@ -663,6 +669,10 @@ packages:
 
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
+
+  loglevel@1.9.2:
+    resolution: {integrity: sha512-HgMmCqIJSAKqo68l0rS2AanEWfkxaZ5wNiEFb5ggm08lDs9Xl2KxBlX3PTcaD2chBM1gXAYf491/M2Rv8Jwayg==}
+    engines: {node: '>= 0.6.0'}
 
   loupe@3.2.1:
     resolution: {integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==}
@@ -1013,6 +1023,10 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
+  '@mlc-ai/web-llm@0.2.84':
+    dependencies:
+      loglevel: 1.9.2
+
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
@@ -1275,6 +1289,8 @@ snapshots:
   hono@4.13.2: {}
 
   js-tokens@9.0.1: {}
+
+  loglevel@1.9.2: {}
 
   loupe@3.2.1: {}
 

@@ -4,7 +4,7 @@ import type { Alternatif } from '../alternatif'
 import { tarayici } from '../tarayici'
 
 export type PanelDurum =
-  | { asama: 'yukleniyor' } | { asama: 'okunamadi' }
+  | { asama: 'yukleniyor'; mesaj?: string; ilerleme?: number } | { asama: 'okunamadi' }
   | { asama: 'hata'; mesaj: string; tekrar: () => void }
   | { asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[] }
 
@@ -13,10 +13,17 @@ const tl = (n: number) => n.toLocaleString('tr-TR')
 const mutlakUrl = (u: string | null, kok: string) => !u ? '#' : /^https?:\/\//.test(u) ? u : `${kok}${u}`
 
 const HATA_METNI: Record<string, string> = {
-  anahtarYok: 'Analiz için kendi Gemini API anahtarını girmen gerekiyor — ücretsiz.',
+  anahtarYok: 'Gemini kullanmak için kendi API anahtarını girmen gerekiyor.',
   anahtarSorunu: 'Anahtarın kabul edilmedi. Google AI Studio’da geçerli ve kotasının dolmamış olduğunu kontrol et.',
   hizLimiti: 'Google anahtarın hız sınırına takıldı, biraz sonra tekrar dene.',
-  ag: 'Google’a ulaşılamadı.', ai: 'Analiz üretilemedi.'
+  ag: 'Google’a ulaşılamadı.',
+  ai: 'Analiz üretilemedi.',
+  webgpuYok: 'Bu cihazda WebGPU kullanılamıyor. AI ayarlarından Gemini’yi seçebilirsin.',
+  modelIndirme: 'Yerel model indirilemedi. Bağlantını kontrol et veya Gemini’yi seç.',
+  yerelAi: 'Yerel model bu ilan için geçerli bir analiz üretemedi.'
+}
+const AYAR_GEREKTIREN: Record<string, true> = {
+  anahtarYok: true, anahtarSorunu: true, webgpuYok: true, modelIndirme: true
 }
 
 const KM_ETIKET: Record<string, string> = {
@@ -43,13 +50,21 @@ export function Panel({ durum, kok = 'https://www.sahibinden.com' }: { durum: Pa
         <button class="kucult" data-rol="kucult" onClick={govdeGizleGoster}>─</button>
       </div>
       <div class="govde" data-rol="govde">
-        {durum.asama === 'yukleniyor' && <div class="skeleton bolum" data-rol="skeleton" />}
+        {durum.asama === 'yukleniyor' && (
+          <div class="yukleniyorBolum bolum" data-rol="yukleniyor">
+            <div class="skeleton" data-rol="skeleton" />
+            {durum.mesaj && <div class="yukleniyorMetin">{durum.mesaj}</div>}
+            {durum.ilerleme != null && (
+              <div class="modelCubuk"><span style={{ width: `${Math.round(durum.ilerleme * 100)}%` }} /></div>
+            )}
+          </div>
+        )}
         {durum.asama === 'okunamadi' && <div class="hata bolum">İlan bilgileri okunamadı.</div>}
         {durum.asama === 'hata' && (
           <div class="hata bolum">
             {HATA_METNI[durum.mesaj] ?? `Bir sorun oluştu (${durum.mesaj}).`}
-            {durum.mesaj === 'anahtarYok' || durum.mesaj === 'anahtarSorunu'
-              ? <AnahtarCagrisi />
+            {AYAR_GEREKTIREN[durum.mesaj]
+              ? <AyarCagrisi />
               : <div><button class="tekrar" data-rol="tekrar" onClick={durum.tekrar}>Tekrar dene</button></div>}
           </div>
         )}
@@ -59,15 +74,15 @@ export function Panel({ durum, kok = 'https://www.sahibinden.com' }: { durum: Pa
   )
 }
 
-// Anahtar yoksa panelin tek işi yolu göstermek. Uzantı ücretsiz; kurulum tek adım.
-function AnahtarCagrisi() {
+// Yerel model veya Gemini kurulamadığında kullanıcıyı tek ayar ekranına götür.
+function AyarCagrisi() {
   return (
-    <div data-rol="anahtar-cagri">
-      <button class="yukseltDugme" data-rol="anahtar-ac"
-        onClick={() => tarayici.runtime.sendMessage({ tip: 'popupAc' })}>Anahtarı gir</button>
+    <div data-rol="ayar-cagri">
+      <button class="yukseltDugme" data-rol="ayar-ac"
+        onClick={() => tarayici.runtime.sendMessage({ tip: 'popupAc' })}>AI ayarlarını aç</button>
       <div class="yukseltIpucu">
-        Uzantı ücretsiz. Analizi kendi Google Gemini anahtarınla üretiyorsun; anahtar
-        yalnız senin tarayıcında durur. Tarayıcı çubuğundaki uzantı simgesinden de açabilirsin.
+        Yerel AI ilanı cihazında işler ve API anahtarı istemez. Desteklenmeyen cihazlarda
+        kendi Gemini anahtarını kullanabilirsin.
       </div>
     </div>
   )

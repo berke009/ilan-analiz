@@ -6,7 +6,7 @@ import { GIZLILIK_HTML } from './gizlilik'
 // yayınlanmış bir gizlilik URL'i zorunlu kılıyor, o yüzden bu sayfa duruyor.
 //
 // Analiz, kota, hesap ve ödeme akışlarının tamamı kalktı:
-//   · analiz kullanıcının tarayıcısında, kendi API anahtarıyla üretiliyor
+//   · varsayılan model WebGPU ile cihazda, isteğe bağlı Gemini kullanıcı anahtarıyla çalışıyor
 //   · ilan içeriği hiçbir sistemimize uğramıyor
 //   · veritabanı yok — saklanacak veri kalmadı
 // Bu sayfayı statik bir barındırıcıya taşıyıp sunucuyu tamamen kapatmak mümkün;

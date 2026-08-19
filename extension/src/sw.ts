@@ -1,18 +1,15 @@
 import {
-  AnalysisResultSchema, geminiClient, analyzeListing, maskeleIlan,
-  fiyatIstatistik, pazarlikTabani, clampPazarlik, kmDurumu, listeSkoru,
-  AiKrediHatasi, AiHizLimitiHatasi
+  geminiClient, listeSkoru, AiKrediHatasi, AiHizLimitiHatasi
 } from 'shared'
+import { ExtensionServiceWorkerMLCEngineHandler } from '@mlc-ai/web-llm'
 import type { IstekMesaj, CevapMesaj } from './mesaj'
+import { analizCalistir } from './analizCalistir'
 import { anahtarGetir, VARSAYILAN_MODEL } from './anahtar'
 import { tarayici } from './tarayici'
 
-// ANALİZ ARTIK TAMAMEN TARAYICIDA. Sunucumuz analiz akışında yok:
-//   · kullanıcının API anahtarı buradan çıkmıyor, Google'a doğrudan gidiyor
-//   · ilan içeriği bizim hiçbir sistemimize uğramıyor
-//   · kota, hesap, ödeme yok — uzantı ücretsiz
-// Anahtar YALNIZ service worker'da okunuyor; content script'e hiç geçmiyor, yani
-// ilan sayfasındaki kod ele geçse bile anahtara ulaşamaz.
+// Sunucumuz analiz akışında yok. Varsayılan yerel model WebGPU ile cihazda çalışır;
+// Gemini seçilirse kullanıcının anahtarı yalnız bu service worker'da okunur ve doğrudan
+// Google'a gider. İlan içeriği bizim hiçbir sistemimize uğramaz; hesap ve ödeme yoktur.
 
 export async function handleMesaj(
   msg: IstekMesaj, fetcher: typeof fetch = fetch
@@ -33,31 +30,12 @@ export async function handleMesaj(
   const anahtar = await anahtarGetir()
   if (!anahtar) return { ok: false, hata: 'anahtarYok' }
 
-  const { ilan, benzerFiyatlar } = msg.istek
-  // Maske çağrıdan ÖNCE: telefon/IBAN/TCKN/plaka Google'a gitmesin. Sunucu yokken de
-  // vazgeçilmez — ilan sahibinin kişisel verisi ilanı okuyan kullanıcının değil.
-  maskeleIlan(ilan)
-
-  const ist = ilan.fiyat ? fiyatIstatistik(benzerFiyatlar, ilan.fiyat.tutar) : null
-  const taban = ist && ilan.fiyat ? pazarlikTabani(ilan.fiyat.tutar, ist.medyan) : null
-  const km = kmDurumu(ilan.km, ilan.yil, ilan.kategori, ilan.yakit, new Date().getFullYear())
-
   try {
-    const analiz = await analyzeListing(
-      geminiClient({ apiKey: anahtar, fetcher }), VARSAYILAN_MODEL, ilan, ist, taban, null, km
+    const analiz = await analizCalistir(
+      geminiClient({ apiKey: anahtar, fetcher }), VARSAYILAN_MODEL, msg.istek
     )
     if (!analiz) return { ok: false, hata: 'ai' }
-    const sonuc = AnalysisResultSchema.parse({
-      ...analiz,
-      pazarlikHedefi: taban ? Math.round(clampPazarlik(analiz.pazarlikHedefi, taban)) : analiz.pazarlikHedefi,
-      fiyatIstatistik: ist,
-      kmDurum: km,
-      // Kronik sorunlar sunucu tarafındaydı (web araması + paylaşılan önbellek).
-      // Sunucu kalkınca bu katman da kalktı; ileride kullanıcının kendi anahtarıyla
-      // tarayıcıda üretilebilir. Uydurma liste göstermektense boş bırakmak doğrusu.
-      kronikSorunlar: []
-    })
-    return { ok: true, veri: sonuc }
+    return { ok: true, veri: analiz }
   } catch (e) {
     // Kullanıcı kendi anahtarını kullanıyor: "kredi bitti" ile "kota doldu" ile
     // "anahtar geçersiz" onun için ÜÇ AYRI eylem demek. Tek hataya indirmek,
@@ -68,8 +46,18 @@ export async function handleMesaj(
   }
 }
 
+let yerelHandler: ExtensionServiceWorkerMLCEngineHandler | null = null
+
+function yerelModelPortunuBagla(port: chrome.runtime.Port): void {
+  if (port.name !== 'web_llm_service_worker') return
+
+  if (!yerelHandler) yerelHandler = new ExtensionServiceWorkerMLCEngineHandler(port)
+  else yerelHandler.setPort(port)
+  port.onMessage.addListener(yerelHandler.onmessage.bind(yerelHandler))
+}
 if (typeof chrome !== 'undefined' && tarayici.runtime?.onMessage) {
   tarayici.runtime.onInstalled?.addListener(() => { eskiDepoyuTemizle().catch(() => {}) })
+  tarayici.runtime.onConnect?.addListener(yerelModelPortunuBagla)
   tarayici.runtime.onMessage.addListener((msg: IstekMesaj, _sender, sendResponse) => {
     handleMesaj(msg).then(sendResponse)
     return true // async cevap

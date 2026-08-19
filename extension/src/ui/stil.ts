@@ -156,6 +156,11 @@ export const STIL = `
   background-size: 200% 100%; animation: par 1.4s linear infinite }
 @keyframes par { to { background-position: -200% 0 } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none } }
+.yukleniyorMetin { margin-top: 12px; text-align: center; color: var(--metin2);
+  font: 500 11.5px/1.4 var(--sans) }
+.modelCubuk { height: 4px; margin-top: 9px; overflow: hidden; border-radius: 2px; background: var(--kenar) }
+.modelCubuk span { display: block; height: 100%; border-radius: inherit; background: var(--yesil);
+  transition: width .15s linear }
 .hata { padding: 22px 4px; text-align: center; font: 400 12.5px/1.5 var(--sans); color: var(--metin2) }
 .tekrar { margin-top: 10px; background: var(--yuzey); color: var(--metin); border: 1px solid var(--kenar);
   border-radius: 4px; padding: 7px 14px; cursor: pointer; font: 600 11.5px/1 var(--sans) }

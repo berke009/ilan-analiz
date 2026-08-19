@@ -43,9 +43,9 @@ a { color:var(--vurgu) }
 <h1>Gizlilik Politikası</h1>
 <p class="alt">İlan Analiz (tarayıcı uzantısı) · ${SIRKET} · Son güncelleme: ${GUNCELLEME}</p>
 
-<div class="kutu"><p><strong>Uzantı bize hiçbir veri göndermez.</strong> Analiz sizin
-tarayıcınızda, sizin kendi yapay zekâ anahtarınızla üretilir. İlan bilgileri bize hiç
-ulaşmaz; bizim saklayacağımız bir veri yoktur. Hesap açmanız da gerekmez. (Şu an
+<div class="kutu"><p><strong>Uzantı bize hiçbir veri göndermez.</strong> Varsayılan
+yerel AI ilanı WebGPU ile tamamen cihazınızda işler. İsterseniz kendi Gemini anahtarınızı
+kullanabilirsiniz; bu durumda da ilan bilgileri bize ulaşmaz ve hesabınız olmaz. (Şu an
 okuduğunuz bu sayfa bizim sunucumuzdan gelir; uzantının kendisi o sunucuya hiç
 bağlanmaz.)</p></div>
 
@@ -68,9 +68,12 @@ sayfasını okur ve sonucu aynı sayfada gösterir.</p>
 <h2>Tarayıcınızda saklananlar</h2>
 <table>
 <tr><th>Veri</th><th>Nerede</th><th>Neden</th></tr>
-<tr><td>Yapay zekâ API anahtarınız</td><td>Yalnız tarayıcınızın uzantı deposunda</td>
-    <td>Analiz çağrısını yapmak. <strong>Bize hiç gönderilmez</strong>; doğrudan yapay zekâ
-        sağlayıcısına gider. İlan sayfasındaki koda da geçmez.</td></tr>
+<tr><td>İsteğe bağlı Gemini API anahtarınız</td><td>Yalnız tarayıcınızın uzantı deposunda</td>
+    <td>Gemini'yi seçerseniz analiz çağrısını yapmak. <strong>Bize hiç gönderilmez</strong>;
+        doğrudan Google'a gider. İlan sayfasındaki koda da geçmez.</td></tr>
+<tr><td>Yerel AI model dosyaları</td><td>Tarayıcı önbelleğinde</td>
+    <td>WebGPU ile cihazınızda analiz yapmak. İlk kurulumda kullanıcı isteğiyle Hugging Face'den
+        indirilir; ilan metni ve API anahtarı bu isteğe eklenmez.</td></tr>
 <tr><td>Açtığınız liste sayfalarının satırları (yıl, kilometre, fiyat)</td>
     <td>Tarayıcınızda, en fazla 24 saat</td>
     <td>Fiyat karşılaştırması. Yalnız sizin gördüğünüz sayfalardan gelir, ek istek yapılmaz.</td></tr>
@@ -79,23 +82,27 @@ sayfasını okur ve sonucu aynı sayfada gösterir.</p>
 </table>
 <p>Bunların hepsi sizin cihazınızda kalır ve uzantıyı kaldırdığınızda silinir.</p>
 
-<h2>Yapay zekâ sağlayıcısına gidenler</h2>
-<p>Analiz üretmek için ilanın metni, <strong>sizin anahtarınızla</strong> ve doğrudan
+<h2>Yapay zekâ işleme seçenekleri</h2>
+<p><strong>Yerel AI varsayılandır.</strong> İlan metni WebGPU ile cihazınızda işlenir ve
+herhangi bir yapay zekâ sağlayıcısına gönderilmez. İlk kurulumda yalnız model dosyaları
+Hugging Face'den tarayıcı önbelleğine indirilir.</p>
+<p>Gemini'yi seçerseniz ilanın metni, <strong>sizin anahtarınızla</strong> ve doğrudan
 tarayıcınızdan Google Gemini API'ye gönderilir. Bu aktarım sizinle Google arasındadır;
-biz aracı değiliz ve içeriği görmeyiz. Google'ın bu veriyi nasıl işlediği kendi
-koşullarına tabidir.</p>
-<p>Gönderilmeden önce metindeki <strong>telefon numarası, e-posta adresi, IBAN, T.C.
-kimlik numarası ve plaka</strong> otomatik olarak maskelenir (yerine <code>[telefon]</code>
-gibi bir işaret konur). Bu, ilan sahibinin kişisel verisini korumak içindir.</p>
+biz aracı değiliz ve içeriği görmeyiz. Google'ın veriyi nasıl işlediği kendi koşullarına
+tabidir.</p>
+<p>Gemini'ye gönderilmeden önce metindeki <strong>telefon numarası, e-posta adresi, IBAN,
+T.C. kimlik numarası ve plaka</strong> otomatik olarak maskelenir (yerine
+<code>[telefon]</code> gibi bir işaret konur).</p>
 
 <h2>Ödeme</h2>
-<p>Uzantı ücretsizdir. Bizde ödeme alınmaz, kart bilgisi işlenmez, abonelik yoktur.
-Yapay zekâ kullanımının bedeli varsa doğrudan sizin kendi sağlayıcı hesabınızdan işler.</p>
+<p>Uzantı ve yerel AI ücretsizdir. Bizde ödeme alınmaz, kart bilgisi işlenmez, abonelik
+yoktur. Gemini'yi seçerseniz yapay zekâ kullanımının bedeli doğrudan sizin Google
+hesabınızdan işler.</p>
 
 <h2>Haklarınız</h2>
-<p>Bizde veriniz olmadığı için silinecek bir kaydımız da yok. Tarayıcınızda saklananları
-uzantıyı kaldırarak veya uzantı penceresinden anahtarı silerek istediğiniz an
-temizleyebilirsiniz. Soru için ${ILETISIM}.</p>
+<p>Bizde veriniz olmadığı için silinecek bir kaydımız da yok. Tarayıcınızda saklanan
+analizleri ve yerel model dosyalarını uzantıyı kaldırarak; Gemini anahtarını ise uzantı
+penceresinden silerek temizleyebilirsiniz. Soru için ${ILETISIM}.</p>
 
 <h2>Değişiklikler</h2>
 <p>Uygulamalar değişirse bu sayfa güncellenir ve değişiklik uzantı panelinde duyurulur.</p>
