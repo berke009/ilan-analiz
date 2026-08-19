@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process'
 
 // pnpm build   → geliştirme paketi (okunur çıktı)
 // pnpm paket   → dağıtım paketi (minify + zip)
-// Sunucu ve Supabase bağımlılığı KALKTI: analiz tarayıcıda, anahtar kullanıcının.
-// Derleme artık hiçbir gizli değer istemiyor — paket herkesin elinde aynı.
+// Sunucu ve Supabase bağımlılığı KALKTI: yerel model veya kullanıcının Gemini anahtarı
+// doğrudan tarayıcıda çalışır. Derleme gizli değer istemez; paket herkesin elinde aynı.
 const paketle = process.env.PAKET === '1'
 // HEDEF=firefox: Firefox MV3'te arka plan service worker DEĞİL, event page.
 // Ayrıca imzalama için gecko.id zorunlu. İki mağazanın manifesti aynı olamıyor.
@@ -29,8 +29,13 @@ const ortak = {
   jsx: 'automatic', jsxImportSource: 'preact'
 }
 await build({ ...ortak, entryPoints: ['src/content.tsx'], format: 'iife' })
-await build({ ...ortak, entryPoints: ['src/sw.ts'], format: 'esm' })
-await build({ ...ortak, entryPoints: ['src/popup.tsx'], format: 'iife' })
+await build({
+  ...ortak,
+  entryPoints: ['src/sw.ts', 'src/popup.tsx'],
+  format: 'esm',
+  splitting: true,
+  chunkNames: 'chunks/[name]-[hash]'
+})
 
 const manifest = JSON.parse(readFileSync('public/manifest.json', 'utf8'))
 if (firefox) {
@@ -68,6 +73,8 @@ writeFileSync(`${CIKTI}/manifest.json`, JSON.stringify(manifest, null, 2))
 cpSync('public/popup.html', `${CIKTI}/popup.html`)
 mkdirSync(`${CIKTI}/icons`, { recursive: true })
 cpSync('public/icons', `${CIKTI}/icons`, { recursive: true })
+mkdirSync(`${CIKTI}/model-libs`, { recursive: true })
+cpSync('public/model-libs', `${CIKTI}/model-libs`, { recursive: true })
 
 if (paketle) {
   const zip = `ilan-analiz${firefox ? '-firefox' : ''}-${manifest.version}.zip`

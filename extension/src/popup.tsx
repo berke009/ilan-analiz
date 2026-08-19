@@ -1,5 +1,5 @@
 import { render } from 'preact'
-import { Anahtar } from './ui/Anahtar'
+import { AiAyarlari } from './ui/Anahtar'
 import { RENKLER } from './ui/stil'
 
 // Popup kendi belgesi; shadow DOM'a gerek yok, stil kimseyle çakışmıyor.
@@ -63,6 +63,13 @@ body { margin: 0; width: 320px; background: var(--zemin); color: var(--metin);
 .kart { display: block }
 .bilgi { margin-top: 14px; padding: 9px 11px; background: var(--yuzey); border-left: 2px solid var(--yesil);
   border-radius: 0 4px 4px 0; font: 400 12px/1.5 var(--sans); color: var(--metin2) }
+.indirme { margin-top: 14px }
+.indirmeSatir { display: flex; justify-content: space-between; color: var(--metin2);
+  font: 500 11.5px/1 var(--sans) }
+.indirmeSatir b { color: var(--metin); font: 600 11.5px/1 var(--mono) }
+.indirmeCubuk { height: 5px; margin-top: 8px; overflow: hidden; border-radius: 3px; background: var(--kenar) }
+.indirmeCubuk span { display: block; height: 100%; border-radius: inherit; background: var(--yesil);
+  transition: width .15s linear }
 `
 
 const stil = document.createElement('style')
@@ -70,4 +77,4 @@ stil.textContent = STIL
 document.head.appendChild(stil)
 
 const kok = document.getElementById('kok')!
-render(<><div class="baslik">İlan Analiz</div><Anahtar /></>, kok)
+render(<><div class="baslik">İlan Analiz</div><AiAyarlari /></>, kok)

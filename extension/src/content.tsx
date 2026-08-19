@@ -1,12 +1,15 @@
 import { render } from 'preact'
 import type { AnalysisResult, ListRow } from 'shared'
 import { adaptorSec, type SiteAdaptoru } from './siteler'
-import { benzerIlanlarBul, listeDepo } from './similar'
+import { benzerIlanlarBul, listeDepo, type BenzerSonuc } from './similar'
 import { lokalSonucGet, lokalSonucSet } from './lokalCache'
 import { Panel, type PanelDurum } from './ui/Panel'
 import { STIL } from './ui/stil'
 import { listeAkisi } from './listeAkisi'
 import type { CevapMesaj } from './mesaj'
+import { aiSaglayiciGetir } from './aiAyar'
+import { analizCalistir } from './analizCalistir'
+import { YEREL_MODEL, yerelAiClient } from './yerelAi'
 import { tarayici } from './tarayici'
 
 // Siteye özel HİÇBİR bilgi bu dosyada yok; hepsi adaptörden geliyor (bkz. siteler/).
@@ -28,19 +31,47 @@ async function detayAkisi(site: SiteAdaptoru) {
   const ilan = site.detayOku(document, location.href)
   if (!ilan || !ilan.fiyat) { ciz({ asama: 'okunamadi' }); return }
 
-  const cizSonuc = (sonuc: AnalysisResult, benzer: Awaited<ReturnType<typeof benzerIlanlarBul>>) =>
+  const cizSonuc = (sonuc: AnalysisResult, benzer: BenzerSonuc | null) =>
     ciz({ asama: 'hazir', sonuc, benzerler: benzer?.satirlar })
 
-  const calistir = async (hazirBenzer?: Awaited<ReturnType<typeof benzerIlanlarBul>>) => {
+  const calistir = async (hazirBenzer?: BenzerSonuc | null) => {
     ciz({ asama: 'yukleniyor' })
     const benzer = hazirBenzer !== undefined ? hazirBenzer : await benzerIlanlarBul(ilan, listeDepo(), site.ad)
-    const cevap: CevapMesaj = await tarayici.runtime.sendMessage({ tip: 'analyze', istek: { ilan, benzerFiyatlar: benzer?.fiyatlar ?? [] } })
+    const saglayici = await aiSaglayiciGetir()
+    let cevap: CevapMesaj
+
+    if (saglayici === 'yerel') {
+      let motorHazir = false
+      try {
+        const ai = await yerelAiClient(rapor => {
+          const yuzde = Math.round(rapor.progress * 100)
+          ciz({ asama: 'yukleniyor', mesaj: `Yerel model hazırlanıyor · %${yuzde}`, ilerleme: rapor.progress })
+        })
+        motorHazir = true
+        ciz({ asama: 'yukleniyor', mesaj: 'İlan cihazında analiz ediliyor…' })
+        const sonuc = await analizCalistir(ai, YEREL_MODEL, { ilan, benzerFiyatlar: benzer?.fiyatlar ?? [] })
+        cevap = sonuc ? { ok: true, veri: sonuc } : { ok: false, hata: 'yerelAi' }
+      } catch (hata) {
+        console.error('[YEREL AI]', hata)
+        const mesaj = String(hata instanceof Error ? hata.message : hata)
+        cevap = {
+          ok: false,
+          hata: mesaj.includes('WEBGPU_YOK') ? 'webgpuYok' : motorHazir ? 'yerelAi' : 'modelIndirme'
+        }
+      }
+    } else {
+      cevap = await tarayici.runtime.sendMessage({
+        tip: 'analyze', istek: { ilan, benzerFiyatlar: benzer?.fiyatlar ?? [] }
+      })
+    }
+
     if (!cevap.ok) { ciz({ asama: 'hata', mesaj: cevap.hata, tekrar: () => calistir() }); return }
     const sonuc = cevap.veri as AnalysisResult
-    await lokalSonucSet(ilan.ilanId, ilan.fiyat!.tutar, sonuc)
+    await lokalSonucSet(ilan.ilanId, ilan.fiyat!.tutar, saglayici, sonuc)
     cizSonuc(sonuc, benzer)
   }
-  const eldeki = await lokalSonucGet(ilan.ilanId, ilan.fiyat.tutar)
+  const saglayici = await aiSaglayiciGetir()
+  const eldeki = await lokalSonucGet(ilan.ilanId, ilan.fiyat.tutar, saglayici)
   if (eldeki) {
     // AI sonucu cache'ten anında gelsin; karşılaştırma satırları yerel depodan okunur
     // (ağ yok, bedava) — kullanıcı bu arada bir liste sayfası gezmişse artık elde olabilir.

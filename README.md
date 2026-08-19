@@ -5,26 +5,29 @@ uzantısı. Bir ilan sayfası açtığınızda kilometreyi yaşına göre yoruml
 ilanların medyanıyla karşılaştırır, gerçekçi bir pazarlık hedefi hesaplar ve ilanı alıcı
 gözünden özetler.
 
-**Ücretsiz, üyeliksiz, hesapsız.** Analiz sizin tarayıcınızda, sizin kendi yapay zekâ
-API anahtarınızla üretilir.
+**Ücretsiz, üyeliksiz, hesapsız.** Varsayılan yerel AI, WebGPU ile tamamen cihazınızda
+çalışır ve API anahtarı istemez. İsterseniz kendi Gemini anahtarınızı da kullanabilirsiniz.
 
 ---
 
 ## Veri nereye gidiyor
 
-Tek cümlelik hâli: **ilan metni yalnız sizin anahtarınızla Google'a gider, bize hiçbir
-şey gelmez.** Ayrıntısı:
+Tek cümlelik hâli: **yerel AI seçiliyken ilan metni cihazınızdan çıkmaz; bize hiçbir
+seçenekte veri gelmez.** Ayrıntısı:
 
 | Veri | Nereye | Not |
 |---|---|---|
-| İlan metni (maskelenmiş) | Google Gemini API | Doğrudan tarayıcınızdan, sizin anahtarınızla. Aktarım sizinle Google arasında; biz aracı değiliz |
-| API anahtarınız | Yalnız tarayıcınızın uzantı deposu | Google'a giden istekte kullanılır; bize gönderilmez, içerik script'ine geçmez |
+| İlan metni | Yalnız tarayıcınız | Varsayılan yerel AI, metni WebGPU ile cihazınızda işler |
+| Yerel model dosyaları | Hugging Face'den tarayıcı önbelleğine | İlk kurulumda yaklaşık 1,6 GB indirilir; ilan bilgisi bu isteğe eklenmez |
+| İlan metni (maskelenmiş, yalnız Gemini seçilirse) | Google Gemini API | Doğrudan tarayıcınızdan, sizin anahtarınızla; biz aracı değiliz |
+| Gemini API anahtarınız (isteğe bağlı) | Yalnız tarayıcınızın uzantı deposu | Bize gönderilmez, içerik script'ine geçmez |
 | Açtığınız liste sayfalarının satırları | Yalnız tarayıcınız, 24 saat | Fiyat karşılaştırması için. Yalnız sizin gördüğünüz sayfalardan |
-| Ürettiğiniz analizler | Yalnız tarayıcınız, 24 saat | Aynı ilanı tekrar açınca size ücret çıkmasın diye |
+| Ürettiğiniz analizler | Yalnız tarayıcınız, 24 saat | Aynı ilanı tekrar açınca modeli yeniden çalıştırmamak için |
 | Kullanım istatistiği, çerez, hesap | **Yok** | Toplanmıyor |
 
-Google'a gitmeden önce metindeki telefon, e-posta, IBAN, T.C. kimlik numarası ve plaka
-maskelenir (`shared/src/pii.ts`). Bu, ilanı yazan kişinin verisini korumak içindir.
+Gemini seçildiğinde Google'a gönderilmeden önce metindeki telefon, e-posta, IBAN,
+T.C. kimlik numarası ve plaka maskelenir (`shared/src/pii.ts`). Bu, ilanı yazan kişinin
+verisini korumak içindir.
 
 **Bu depoda bir `backend/` klasörü var** — dürüst olmak gerekirse tam olarak "sunucusuz"
 değiliz. O sunucunun tek işi statik bir gizlilik politikası sayfası sunmak (mağaza
@@ -45,15 +48,16 @@ gösterilmez** — uydurma istatistik üretilmez.
 Bu kural teste bağlı, yorumla değil: `extension/test/similar.test.ts` içindeki
 "ağ erişimi yok" bloğu, karşılaştırma yoluna bir `fetch` girerse patlar.
 
-## Anahtarınız neden güvende
+## İsteğe bağlı Gemini anahtarınız neden güvende
 
-BYOK bir uzantıya kendi API anahtarınızı vermek haklı olarak tedirgin edicidir. Kodu
-okumadan da doğrulayabileceğiniz şeyler:
+Yerel AI anahtar istemez. Gemini'yi tercih ederseniz kendi API anahtarınızı uzantıya
+verirsiniz; kodu okumadan da doğrulayabileceğiniz sınırlar:
 
 - Anahtar **yalnız service worker'da** okunur; ilan sayfasına enjekte edilen içerik
   script'ine hiç geçmez. Sayfadaki üçüncü taraf bir kod ele geçse bile anahtara ulaşamaz.
-- Anahtarla yapılan tek istek Google'ın API'sine gider. Uzantının manifest'indeki
-  `host_permissions` listesi bunu sınırlar — listede ne varsa uzantı ancak oraya çıkabilir.
+- Anahtarla yapılan tek istek Google'ın API'sine gider. Manifestteki Hugging Face
+  izinleri yalnız kullanıcı model indirmeyi başlattığında kullanılır; anahtar ve ilan
+  metni o isteklere eklenmez.
 - Uzantıyı derlemek gizli bir değer istemez. Mağazadaki paketle bu depodan derlediğiniz
   paketi karşılaştırabilirsiniz.
 - Anahtarı uzantı penceresinden silebilir, Google AI Studio'dan iptal edebilirsiniz.
@@ -65,12 +69,20 @@ belirleyen taraf Google, biz değiliz.
 
 ## Kurulum
 
-### Anahtar nasıl alınır
+### Yerel AI
 
-1. [Google AI Studio](https://aistudio.google.com/apikey) adresine girin
-2. Google hesabınızla oturum açın
-3. **Create API key** deyip anahtarı kopyalayın
-4. Uzantı simgesine tıklayıp yapıştırın
+1. Uzantı simgesine tıklayın
+2. **Yerel modeli indir** düğmesine basın
+3. Yaklaşık 1,6 GB'lık ilk indirme bitene kadar pencereyi açık tutun
+
+Model daha sonra tarayıcı önbelleğinden açılır. Chrome/Edge 124+ ve yaklaşık 4 GB
+kullanılabilir GPU/birleşik bellek önerilir. WebGPU kullanılamıyorsa Gemini seçilebilir.
+
+### İsteğe bağlı Gemini
+
+1. Uzantı penceresinde **Gemini kullan** seçeneğine basın
+2. [Google AI Studio](https://aistudio.google.com/apikey) adresinden anahtar oluşturun
+3. Anahtarı uzantıya yapıştırın
 
 Anahtar yapıştırıldığında token harcamayan bir doğrulama isteğiyle sınanır; yanlışsa
 sebebini söyler (geçersiz / kota / yetki).
@@ -104,19 +116,18 @@ Yeni site eklemek yaklaşık 130 satır — ayrıntı: [CONTRIBUTING.md](CONTRIB
 ## Nasıl çalışıyor
 
 ```
-┌─ Tarayıcı ──────────────────────────────────────────┐
-│ content script                                      │
-│   · site adaptörü sayfayı okur (src/siteler/)       │
-│   · panel ve skor rozetlerini çizer                 │
-│   · liste satırlarını yerel depoya yazar            │
-│   · anahtarı GÖRMEZ                                 │
-│                                                     │
-│ service worker             ┌────────────────────┐   │
-│   · deterministik hesap    │ Google Gemini API  │   │
-│   · PII maskesi         ──►│ kullanıcının kendi │   │
-│   · analiz çağrısı         │ anahtarıyla        │   │
-│   · anahtar burada durur   └────────────────────┘   │
-└─────────────────────────────────────────────────────┘
+┌─ Tarayıcı ────────────────────────────────────────────────────┐
+│ content script                                                │
+│   · site adaptörü sayfayı okur (src/siteler/)                 │
+│   · panel ve skor rozetlerini çizer                           │
+│   · liste satırlarını yerel depoya yazar                      │
+│                                                               │
+│ service worker                                                │
+│   · deterministik hesap + PII maskesi                         │
+│   · varsayılan: Qwen 3.5 4B → WebLLM → WebGPU (cihazda)       │
+│   · isteğe bağlı: kullanıcının anahtarıyla Gemini API         │
+│   · Gemini anahtarı yalnız burada okunur                      │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 Panelde gördüğünüz sayıların çoğu yapay zekâdan gelmez. Fiyat medyanı, yüzdelik dilim,
