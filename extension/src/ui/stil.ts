@@ -118,6 +118,8 @@ export const STIL = `
    sorun değil, kaynak beyanı; uyarı renkleri gerçek bayrakların işareti kalmalı. */
 .paylasimNot { font: 400 11px/1.5 var(--sans); color: var(--metin3);
   border-left: 2px solid var(--kenar); padding-left: 9px }
+.paylasimNot .tekrar { margin: 7px 6px 0 0 }
+.paylasimOnay { margin-top: 7px; color: var(--metin2) }
 
 /* Daha iyi alternatifler — tıklanabilir satırlar */
 .altSatir { display: block; padding: 8px 10px; margin-bottom: 6px;

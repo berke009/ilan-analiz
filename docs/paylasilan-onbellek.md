@@ -88,6 +88,18 @@ popülerlik uzun ömür demek olur, yani zehir en çok zarar verdiği yerde en u
 sil/yeniden-yaz döngüsü kurulabilirdi. Sonuç: eşiği aşmış bir anahtar TTL boyunca
 önbelleğe alınamaz hâlde kalır, yani tartışmalı ilan paylaşılmaz.
 
+**İtirazı ne tetikliyor.** Normal akışta paylaşılan bir kayıt hep OKUNUR, hiç üstüne
+yazılmaz: ikinci kullanıcı isabet alır, Gemini'ye hiç gitmez, POST hiç atmaz. Yani
+çakışma yalnız iki kullanıcının aynı anda analiz ettiği yarış durumunda oluşur ve
+mekanizma kendiliğinden neredeyse hiç ateşlenmez. Zehirlenmiş bir kayıt tam olarak bu
+yüzden itiraz üretmezdi.
+
+Bunu panelde **"Kendi anahtarımla güncelle"** düğmesi çözüyor. Paylaşılan bir sonucu
+gören kullanıcı onay verip analizi kendi anahtarıyla yeniden ürettirir; sonuç yine
+sunucuya yazılır ve sunucu skoru mevcut kayıtla karşılaştırır. Böylece düzeltme bir
+tıklamanın (yani öznel bir şikâyetin) değil, GERÇEK ikinci bir analizin ürünü olur.
+Onay isteniyor çünkü maliyeti kullanıcının kendi kotasından çıkıyor.
+
 Kötü niyetli biri ayrışan iki yazmayla bir ilanı önbellek dışı bırakabilir. Kazandığı
 şey, kimsenin zarar görmediği bir durum: önbellek isabetsizliği zaten ürünün varsayılan
 davranışı. Zehirlemenin bedeliyle karşılaştırıldığında bu takas bilinçli.

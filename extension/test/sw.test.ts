@@ -241,3 +241,43 @@ describe('paylaşılan önbellek', () => {
     expect(istemci.yazilan).toHaveLength(0)
   })
 })
+
+describe('zorla yenileme', () => {
+  const PAYLASILAN = {
+    skor: 4.2, durumEtiketi: 'Dikkatli Ol', chipler: [], bayraklar: [],
+    avantajlar: ['x'], dezavantajlar: ['y'], ozet: 'paylaşılan özet', fiyatYorumu: ''
+  }
+  const zorlaIstek = (): any => ({
+    tip: 'analyze',
+    istek: { ilan: JSON.parse(JSON.stringify(ilan)), benzerFiyatlar: [], siteAd: 'sahibinden', zorla: true }
+  })
+
+  it('önbellekte kayıt VARKEN bile okumaz, kendi anahtarıyla üretir', async () => {
+    depoKur({ geminiAnahtar: 'AIzaSyTest' })
+    const okunan: string[] = []
+    const yazilan: any[] = []
+    const istemci = {
+      oku: async (a: string) => { okunan.push(a); return { analiz: PAYLASILAN, ts: Date.now() } },
+      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }) }
+    }
+    const c: any = await handleMesaj(zorlaIstek(), (async () => geminiYanit(JSON.stringify(AI_CEVAP))) as any, async () => istemci)
+    expect(c.ok).toBe(true)
+    expect(okunan).toHaveLength(0)          // okuma atlandı
+    expect(c.kaynak).toBe('kendi')
+    expect(c.veri.ozet).toBe('özet')        // paylaşılan değil, taze analiz
+  })
+
+  it('sonucu YİNE paylaşıma yazar — itiraz sinyalini üreten şey bu', async () => {
+    // Yazmasaydı sunucu skorları karşılaştıramaz ve zehirli kayıt hiç işaretlenmezdi.
+    depoKur({ geminiAnahtar: 'AIzaSyTest' })
+    const yazilan: any[] = []
+    const istemci = {
+      oku: async () => ({ analiz: PAYLASILAN, ts: Date.now() }),
+      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }) }
+    }
+    await handleMesaj(zorlaIstek(), (async () => geminiYanit(JSON.stringify(AI_CEVAP))) as any, async () => istemci)
+    expect(yazilan).toHaveLength(1)
+    expect(yazilan[0].anahtar).toMatch(/^[0-9a-f]{64}$/)
+    expect(yazilan[0].analiz.skor).toBe(AI_CEVAP.skor)
+  })
+})

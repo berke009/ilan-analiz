@@ -3,7 +3,11 @@ import type { AnalyzeRequest, BatchScoreRequest } from 'shared'
 export type IstekMesaj =
   // siteAd paylaşılan önbellek anahtarının parçası: iki farklı sitede aynı ilan
   // numarası çakışabiliyor ve birinin analizi öbürüne servis edilirdi.
-  | { tip: 'analyze'; istek: AnalyzeRequest & { siteAd?: string } }
+  // zorla: paylaşılan önbellek OKUMASINI atla, analizi kullanıcının kendi anahtarıyla
+  // yeniden üret. Panelde "Güncelle" düğmesi bunu tetikliyor. Sonuç yine paylaşıma
+  // yazılır ve sunucu, mevcut kayıtla skoru karşılaştırıp itiraz sayar — yani
+  // düzeltme, bir tıklamanın değil GERÇEK ikinci bir analizin ürünü oluyor.
+  | { tip: 'analyze'; istek: AnalyzeRequest & { siteAd?: string; zorla?: boolean } }
   | { tip: 'batchScore'; istek: BatchScoreRequest }
   | { tip: 'popupAc' }
 

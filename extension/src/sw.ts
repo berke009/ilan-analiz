@@ -75,7 +75,9 @@ export async function handleMesaj(
     })
     : null
 
-  if (istemci && onbellekAnahtar) {
+  // zorla: okuma ATLANIR ama anahtar üretilmeye devam eder — sonuç yine paylaşıma
+  // yazılacak ve sunucu mevcut kayıtla karşılaştırıp itiraz sayacak.
+  if (istemci && onbellekAnahtar && !msg.istek.zorla) {
     const kayit = await istemci.oku(onbellekAnahtar)
     if (kayit) {
       // SAYILAR ÖNBELLEKTEN GELMEZ. Fiyat istatistiği, km durumu ve pazarlık hedefi

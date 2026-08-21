@@ -220,3 +220,46 @@ describe('paylaşılan sonuç beyanı', () => {
     expect(yasMetni(simdi - 30 * 3600_000, simdi)).toBe('1 gün önce')
   })
 })
+
+describe('paylaşılan sonucu kendi anahtarıyla güncelleme', () => {
+  // Normal akışta paylaşılan bir kayıt hep OKUNUR, hiç üstüne yazılmaz — yani
+  // sunucudaki itiraz mekanizması kendiliğinden neredeyse hiç ateşlenmez. Bu düğme
+  // tek gerçekçi zehir temizleme yolu: buradan çıkan analiz sunucuya yazılıyor ve
+  // sunucu skoru mevcut kayıtla karşılaştırıp ayrışıyorsa itiraz sayıyor.
+  const paylasim = { ts: Date.now() - 3600_000 }
+  // Preact durum güncellemesini mikro görevde toparlıyor; tıklama sonrası DOM'a
+  // bakmadan önce akıtmak gerekiyor.
+  const tikla = async (k: HTMLElement, rol: string) => {
+    const d = k.querySelector(`[data-rol="${rol}"]`) as HTMLButtonElement | null
+    expect(d, rol).not.toBeNull()
+    d!.click()
+    await new Promise(r => setTimeout(r, 0))
+  }
+
+  it('yenileme ONAY İSTER — tek tıkla kullanıcının kotası harcanmaz', async () => {
+    let cagrildi = 0
+    const k = cizdir({ asama: 'hazir', sonuc, paylasim, yenile: () => { cagrildi++ } })
+    await tikla(k, 'yenile')
+    expect(cagrildi).toBe(0)                                    // henüz çalışmadı
+    const onay = k.querySelector('[data-rol="paylasim-onay"]')!
+    expect(onay).not.toBeNull()
+    expect(onay.textContent).toContain('kota')                  // maliyeti söylüyor
+    await tikla(k, 'yenile-onayla')
+    expect(cagrildi).toBe(1)
+  })
+
+  it('vazgeçmek analizi çalıştırmaz', async () => {
+    let cagrildi = 0
+    const k = cizdir({ asama: 'hazir', sonuc, paylasim, yenile: () => { cagrildi++ } })
+    await tikla(k, 'yenile')
+    await tikla(k, 'yenile-vazgec')
+    expect(cagrildi).toBe(0)
+    expect(k.querySelector('[data-rol="yenile"]')).not.toBeNull()
+  })
+
+  it('KENDİ analizinde yenileme düğmesi YOKTUR', () => {
+    // Aynı anahtarla aynı modeli yeniden çalıştırmak aynı şeyi ikinci kez satın almak.
+    const k = cizdir({ asama: 'hazir', sonuc })
+    expect(k.querySelector('[data-rol="yenile"]')).toBeNull()
+  })
+})

@@ -31,14 +31,21 @@ async function detayAkisi(site: SiteAdaptoru) {
   const cizSonuc = (
     sonuc: AnalysisResult, benzer: Awaited<ReturnType<typeof benzerIlanlarBul>>,
     paylasim?: { ts: number }
-  ) => ciz({ asama: 'hazir', sonuc, benzerler: benzer?.satirlar, paylasim })
+  ) => ciz({
+    asama: 'hazir', sonuc, benzerler: benzer?.satirlar, paylasim,
+    // Yenileme YALNIZ paylaşılan sonuçta anlamlı: kendi ürettiğin analizi aynı
+    // anahtarla yeniden üretmek aynı şeyi tekrar satın almak olur.
+    yenile: paylasim ? () => calistir(benzer, true) : undefined
+  })
 
-  const calistir = async (hazirBenzer?: Awaited<ReturnType<typeof benzerIlanlarBul>>) => {
+  const calistir = async (
+    hazirBenzer?: Awaited<ReturnType<typeof benzerIlanlarBul>>, zorla = false
+  ) => {
     ciz({ asama: 'yukleniyor' })
     const benzer = hazirBenzer !== undefined ? hazirBenzer : await benzerIlanlarBul(ilan, listeDepo(), site.ad)
     // siteAd paylaşılan önbellek anahtarının parçası: iki sitede aynı ilan numarası
     // çakışabiliyor ve birinin analizi öbürüne servis edilirdi.
-    const cevap: CevapMesaj = await tarayici.runtime.sendMessage({ tip: 'analyze', istek: { ilan, benzerFiyatlar: benzer?.fiyatlar ?? [], siteAd: site.ad } })
+    const cevap: CevapMesaj = await tarayici.runtime.sendMessage({ tip: 'analyze', istek: { ilan, benzerFiyatlar: benzer?.fiyatlar ?? [], siteAd: site.ad, zorla } })
     if (!cevap.ok) { ciz({ asama: 'hata', mesaj: cevap.hata, tekrar: () => calistir() }); return }
     const sonuc = cevap.veri as AnalysisResult
     const paylasim = cevap.kaynak === 'paylasilan' && cevap.paylasimTs != null

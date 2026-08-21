@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks'
 import type { AnalysisResult, ListRow } from 'shared'
 import { skorRenk } from './skor'
 import type { Alternatif } from '../alternatif'
@@ -10,7 +11,13 @@ export type PanelDurum =
   // önbellekten geldiyse dolu. Panel bunu SÖYLEMEK ZORUNDA — başkasının
   // değerlendirmesini kendi analizin gibi göstermek, kullanıcının bilmesi
   // gereken tek şeyi saklamak olur.
-  | { asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number } }
+  // yenile: paylaşılan sonucu kullanıcının KENDİ anahtarıyla yeniden ürettirir.
+  // Yalnız paylaşılan sonuçta dolu — kendi analizini aynı anahtarla tekrar üretmek
+  // aynı şeyi ikinci kez satın almak olurdu.
+  | {
+    asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]
+    benzerler?: ListRow[]; paylasim?: { ts: number }; yenile?: () => void
+  }
 
 const tl = (n: number) => n.toLocaleString('tr-TR')
 // Site kökü adaptörden gelir; panelin hangi sitede çalıştığını bilmesi gerekmiyor.
@@ -61,7 +68,7 @@ export function Panel({ durum, kok = 'https://www.sahibinden.com' }: { durum: Pa
               : <div><button class="tekrar" data-rol="tekrar" onClick={durum.tekrar}>Tekrar dene</button></div>}
           </div>
         )}
-        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} paylasim={durum.paylasim} kok={kok} />}
+        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} paylasim={durum.paylasim} yenile={durum.yenile} kok={kok} />}
       </div>
     </div>
   )
@@ -90,7 +97,42 @@ export function yasMetni(ts: number, simdi = Date.now()): string {
   return saat < 24 ? `${saat} saat önce` : `${Math.round(saat / 24)} gün önce`
 }
 
-function Sonuc({ s, alternatifler, benzerler, paylasim, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number }; kok: string }) {
+// Paylaşılan sonucun kaynak beyanı + yenileme.
+//
+// Yenileme ONAY İSTİYOR ve sebebi maliyet: kullanıcının kendi Gemini kotasından
+// harcıyor. Tek tıkla çalıştırmak, başkasının parasını sormadan harcamak olurdu.
+//
+// Bu düğme aynı zamanda tek gerçekçi ZEHİR TEMİZLEME yolu. Normal akışta paylaşılan
+// bir kayıt hep okunur, hiç üstüne yazılmaz — yani sunucudaki itiraz mekanizması
+// kendiliğinden neredeyse hiç ateşlenmez. Buradan çıkan analiz sunucuya yazılır,
+// sunucu skoru mevcut kayıtla karşılaştırır ve ayrışıyorsa itiraz sayar. Düzeltme
+// böylece bir tıklamanın değil, GERÇEK ikinci bir analizin ürünü oluyor.
+function PaylasimNotu({ ts, yenile }: { ts: number; yenile?: () => void }) {
+  const [soruyor, setSoruyor] = useState(false)
+  return (
+    <div class="bolum paylasimNot" data-rol="paylasim-not">
+      Bu değerlendirme paylaşılan önbellekten geldi — başka bir kullanıcının kendi
+      anahtarıyla {yasMetni(ts)} üretildi. Fiyat konumu, kilometre değerlendirmesi ve
+      pazarlık hedefi senin kendi verinle hesaplandı.
+      {yenile && (soruyor ? (
+        <div class="paylasimOnay" data-rol="paylasim-onay">
+          Analiz kendi Gemini anahtarınla yeniden üretilecek ve bu bir miktar kota
+          harcayacak. Sonuç paylaşılandan belirgin şekilde ayrışırsa o kayıt işaretlenir.
+          <button class="tekrar" data-rol="yenile-onayla" onClick={yenile}>Evet, yenile</button>
+          <button class="tekrar" data-rol="yenile-vazgec" onClick={() => setSoruyor(false)}>Vazgeç</button>
+        </div>
+      ) : (
+        <div>
+          <button class="tekrar" data-rol="yenile" onClick={() => setSoruyor(true)}>
+            Kendi anahtarımla güncelle
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Sonuc({ s, alternatifler, benzerler, paylasim, yenile, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number }; yenile?: () => void; kok: string }) {
   const renk = skorRenk(s.skor)
   return (
     <>
@@ -108,13 +150,7 @@ function Sonuc({ s, alternatifler, benzerler, paylasim, kok }: { s: AnalysisResu
         </div>
       </div>
 
-      {paylasim && (
-        <div class="bolum paylasimNot" data-rol="paylasim-not">
-          Bu değerlendirme paylaşılan önbellekten geldi — başka bir kullanıcının kendi
-          anahtarıyla {yasMetni(paylasim.ts)} üretildi. Fiyat konumu, kilometre
-          değerlendirmesi ve pazarlık hedefi senin kendi verinle hesaplandı.
-        </div>
-      )}
+      {paylasim && <PaylasimNotu ts={paylasim.ts} yenile={yenile} />}
 
       {s.chipler.length > 0 && (
         <div class="bolum" data-rol="chip-bolum">
