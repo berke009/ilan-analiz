@@ -13,6 +13,7 @@ export type Ayar = {
   izinliOriginler: string[]
   ipBasligi: string
   govdeSiniriBayt: number
+  depoUrl: string
   limit: {
     okumaKimlik: Kural[]; yazmaKimlik: Kural[]
     okumaIp: Kural[]; yazmaIp: Kural[]; yazmaGenel: Kural[]
@@ -46,6 +47,10 @@ export function ayarOku(ortam: NodeJS.ProcessEnv = process.env): Ayar {
     // Şema zaten alan alan sınırlıyor; bu, ayrıştırıcıya hiç ulaşmadan devasa
     // gövdeleri kesen kaba filtre.
     govdeSiniriBayt: sayi(ortam.GOVDE_SINIRI_BAYT, 16 * 1024),
+    // Kök sayfadaki kaynak kodu bağlantısı. Kendi kurulumunu yapan kendi çatalını
+    // göstersin: sayfanın "kodun tamamı burada" iddiası, ancak gösterdiği depo
+    // gerçekten çalışan kodsa doğru olur.
+    depoUrl: ortam.DEPO_URL ?? 'https://github.com/berke009/ilan-analiz',
     limit: {
       okumaKimlik: [
         { adet: sayi(ortam.LIMIT_OKUMA_DK, VARSAYILAN_LIMIT.okumaKimlik[0]!.adet), pencereSn: DAKIKA },

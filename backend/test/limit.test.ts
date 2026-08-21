@@ -81,6 +81,7 @@ describe('toleranslı sarmalayıcı', () => {
     const bozuk = {
       oku: async () => { throw new Error('yok') },
       yazYoksa: async () => { throw new Error('yok') },
+      sil: async () => { throw new Error('yok') },
       sayacArtir: async () => { throw new Error('yok') },
       saglikli: async () => { throw new Error('yok') },
       kapat: async () => {}
@@ -88,6 +89,7 @@ describe('toleranslı sarmalayıcı', () => {
     const d = toleransli(bozuk)
     expect(await d.oku('k')).toBeNull()
     expect(await d.yazYoksa('k', 'v', 60)).toBe(false)
+    await expect(d.sil('k')).resolves.toBeUndefined()
     // 0 = "limit dolmadı": depo çökünce limitler açılır. Uçlar zaten depo yokken
     // önbelleksiz çalışıyor, yani kötüye kullanımdan elde edilecek şey de kalmıyor.
     expect(await d.sayacArtir('k', 60)).toBe(0)

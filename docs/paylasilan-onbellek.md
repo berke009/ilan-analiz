@@ -69,12 +69,65 @@ yazıp o ilanı açan herkese göstermesi. Katmanlar:
 | Telefon/e-posta/IBAN/TCKN/plaka içeren kayıt reddedilir (maske metni değiştiriyorsa) | `backend/src/onbellek.ts` → `denetle` |
 | Alan adı / bağlantı içeren kayıt reddedilir — reklam ilk kötüye kullanımdır | aynı yer |
 | Yazma hız limiti: kimlik başına dakikada 30, günde 300 | `backend/src/limit.ts` |
+| **İtiraz**: ayrışan ikinci yazma kaydı işaretler, iki itiraz kaydı siler | `backend/src/onbellek.ts` |
 | Panelde açık beyan: "başka bir kullanıcının anahtarıyla üretildi" | `extension/src/ui/Panel.tsx` |
 
-Bu **tam koruma değildir**: geçerli görünen ama yanlış bir metin yazan biri, o ilanı
-TTL boyunca kirletebilir. Etkisi bir ilanla ve 24 saatle sınırlı, sayılara ulaşamıyor ve
-kullanıcıya sonucun başkasından geldiği söyleniyor. Daha güçlü seçenek iki bağımsız
-kullanıcının mutabakatını beklemekti; tasarruf yarıya iniyor diye tercih edilmedi.
+### İtiraz: çakışan yazmayı temizliğe çevirmek
+
+Aynı anahtara ikinci bir yazma geldiğinde kayıt ezilmez, ama o yazma bir sinyal taşır:
+ikinci kullanıcı aynı ilan için kendi anahtarıyla **bağımsız** bir sonuç üretti. Skorlar
+yakınsa kayıt doğrulanmıştır; 3 puandan fazla ayrışıyorsa ikisinden biri yanlıştır. İki
+itiraz biriken kayıt silinir.
+
+**TTL uzatmak neden yanlış olurdu:** kayıt zehirliyse ikinci yazan *dürüst* kullanıcıdır
+ve yazması reddedilir. O reddedilen yazmayla süreyi uzatmak, zehri düzeltmeye çalışan
+herkesin zehrin ömrünü uzatması demek olurdu. Okuma sayısıyla uzatmak daha kötü:
+popülerlik uzun ömür demek olur, yani zehir en çok zarar verdiği yerde en uzun yaşar.
+
+İtiraz sayacı kayıttan bağımsız yaşar ve kayıt silinince silinmez — aksi hâlde
+sil/yeniden-yaz döngüsü kurulabilirdi. Sonuç: eşiği aşmış bir anahtar TTL boyunca
+önbelleğe alınamaz hâlde kalır, yani tartışmalı ilan paylaşılmaz.
+
+Kötü niyetli biri ayrışan iki yazmayla bir ilanı önbellek dışı bırakabilir. Kazandığı
+şey, kimsenin zarar görmediği bir durum: önbellek isabetsizliği zaten ürünün varsayılan
+davranışı. Zehirlemenin bedeliyle karşılaştırıldığında bu takas bilinçli.
+
+Bu **tam koruma değildir**: geçerli görünen, skoru da makul olan ama yanlış bir metin
+yazan biri o ilanı TTL boyunca kirletebilir. Etkisi bir ilanla ve 24 saatle sınırlı,
+sayılara ulaşamıyor ve kullanıcıya sonucun başkasından geldiği söyleniyor. Daha güçlü
+seçenek her kayıt için iki bağımsız kullanıcının mutabakatını *beklemekti*; tasarrufu
+yarıya indirdiği için tercih edilmedi — itiraz mekanizması aynı sinyali, beklemeden
+kullanıyor.
+
+## "İstek gerçekten eklentiden mi geliyor?"
+
+**Hayır, bunu kanıtlayamazsınız.** Eklenti açık kaynak, kodu her kullanıcının diskinde ve
+içine konan her sır public olur. Chrome'un uzantı attestation'ı yok. Eklentinin
+gönderebildiği her isteği `curl` de gönderebilir — origin denetimi bile durdurmaz, çünkü
+`host_permissions` ile gelen uzantı isteği bazen `Origin` göndermiyor ve o durumu kabul
+etmek zorundayız; `curl` de tam olarak onu gönderir.
+
+Bu bir eksik değil, uçun doğası. Doğru soru şu: *kanıtlayamadığım bir istemciden gelen
+istek bana ne kaybettirir?*
+
+| Risk | Neyle sınırlı |
+|---|---|
+| Veri sızıntısı | **Yok.** Uçta anahtar yok, PII yok (yazmada reddediliyor), ilan adresi yok, kullanıcı kimliği yok. Çalınacak bir şey olmadığı için "kim gönderdi" sorusunun değeri de düşük. |
+| Kaynak tüketimi | Cloudflare rate limiting + uygulama limitleri + Docker cpu/bellek tavanları. En kötü durumda konteyner doyar, makine ayakta kalır. |
+| Zehirlenme | İlk yazan kazanır + 24 saat TTL + itiraz mekanizması + sayıların hiç paylaşılmaması. |
+| Depo şişmesi | Genel saatlik yazma tavanı + Valkey `maxmemory` + `allkeys-lru`. |
+
+Genel yazma tavanının bilinen bedeli: bir saldırgan saatlik bütçeyi doldurup dürüst
+yazmaları 429'latabilir. Sonuç, paylaşımın bir saatliğine durması ve herkesin kendi
+anahtarıyla devam etmesi — yani ürünün varsayılan davranışı. "Diskimizi doldurabilir"
+ile "paylaşımı bir saat kapatabilir" arasında ikincisi bilinçli olarak seçildi.
+
+Ekleyebileceğiniz tek gerçek araç, yazmaya **proof-of-work** koymaktır: POST,
+`sha256(anahtar|nonce)` çıktısı N sıfır bitle başlayan bir nonce taşısın. Dürüst
+kullanıcıya maliyeti birkaç yüz milisaniye — zaten saniyelerce süren Gemini çağrısının
+yanında görünmez. Kararlı bir saldırganı durdurmaz (kiralık bir makinede
+paralelleştirilebilir) ama `curl` döngüsünü durdurur. Şu an eklenmedi; kötüye kullanım
+görülürse eklenecek yer bellidir.
 
 ## Kurulum
 
@@ -96,7 +149,7 @@ birden fazla örnek çalıştırılamaz.
 ### Cloudflare Tunnel
 
 1. Zero Trust → Networks → Tunnels → Create a tunnel
-2. Public hostname: `onbellek.<alanadınız>` → Service: `http://backend:3000`
+2. Public hostname: `iacache.c3t.com.tr` → Service: `http://backend:3000`
 3. Jetonu `backend/.env` içine `CLOUDFLARE_TUNNEL_TOKEN=` olarak yazın
 
 Kenarda ayrıca yapılması önerilenler:
@@ -146,7 +199,7 @@ Adres **derleme zamanı sabiti**. Verilmeden derlenen pakette özellik yoktur: s
 kalır, kod ölü daldır ve `optional_host_permissions` manifestten tamamen düşer.
 
 ```bash
-PAYLASIM_KOK=https://onbellek.alanadiniz.com pnpm --filter extension build
+PAYLASIM_KOK=https://iacache.c3t.com.tr pnpm --filter extension build
 ```
 
 Çalışma zamanı ayarı olsaydı, ele geçen bir depo değeriyle uzantı başka bir sunucuya
@@ -162,6 +215,7 @@ oluşturabilir; kurulumlar birbirine bağlı değildir.
 | `GET /v1/onbellek/:anahtar` | 64 hex karakterlik anahtarın kaydını döner. 404 = isabetsizlik (önbelleğe alınmaz). |
 | `POST /v1/onbellek` | `{anahtar, analiz}` yazar. 201 yazıldı, 200 zaten vardı, 422 denetimden geçmedi, 429 limit. |
 | `GET /health` | `paylasim` alanı katmanın açık olup olmadığını söyler. |
+| `GET /` | Uçları ve neyin saklandığını anlatan kök sayfa. |
 
 Sunucu **analiz üretmez**, model çağırmaz, API anahtarı görmez.
 

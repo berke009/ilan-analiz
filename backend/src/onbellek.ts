@@ -37,6 +37,31 @@ const KONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/
 
 export type DenetimSonuc = { ok: true } | { ok: false; sebep: 'pii' | 'baglanti' | 'kontrol' }
 
+// İTİRAZ: çakışan yazmayı zehir temizliğine çevirme.
+//
+// Aynı anahtara ikinci bir yazma geldiğinde kayıt EZİLMEZ (ilk yazan kazanır). Ama o
+// yazma bir sinyal taşıyor ve şimdiye kadar çöpe atılıyordu: ikinci kullanıcı, aynı
+// ilan için kendi anahtarıyla BAĞIMSIZ bir sonuç üretti. Skorlar birbirine yakınsa
+// kayıt doğrulanmış demektir; uçurum varsa ikisinden biri yanlıştır.
+//
+// TTL UZATMAK TAM TERSİ OLURDU: kayıt zehirliyse ikinci yazan dürüst kullanıcıdır ve
+// yazması reddedilir — o reddedilen yazmayla süreyi uzatmak, zehri düzeltmeye çalışan
+// herkesin zehrin ömrünü uzatması demek olurdu. Aynı sinyali silme yönünde kullanmak
+// bu yüzden doğru yön.
+//
+// Yanlış tarafa düşme maliyeti düşük: silinen kayıt = önbellek isabetsizliği = ürünün
+// zaten varsayılan davranışı. Kötü niyetli biri ayrışan iki yazmayla bir ilanı
+// önbelleğe alınamaz hâle getirebilir; kazandığı şey, kimsenin zarar görmediği bir
+// durum. Zehirlemenin bedeliyle karşılaştırıldığında bu takas bilinçli.
+const AYRISMA_ESIGI = 3      // 0-10 skorda: bağımsız iki üretim ±1.5 bandında oynar, 3 gerçek uçurumdur
+const ITIRAZ_ESIGI = 2       // tek itiraz kaydı düşürmesin; iki bağımsız itiraz düşürsün
+
+export function ayrisiyorMu(eskiSkor: number | undefined, yeniSkor: number): boolean {
+  // Skor okunamadıysa ayrışma İDDİA EDİLEMEZ: bilinmeyeni itiraz saymak, bozuk tek
+  // bir kaydın kendini silmesine değil, sağlam kayıtların rastgele düşmesine yol açar.
+  return eskiSkor != null && Math.abs(eskiSkor - yeniSkor) >= AYRISMA_ESIGI
+}
+
 // Paylaşıma açılan metnin denetimi.
 //
 // PII kontrolü yazanın DEĞİL, ilan sahibinin verisini koruyor: uzantı maskeyi zaten
@@ -51,6 +76,12 @@ export function denetle(analiz: PaylasilanAnaliz): DenetimSonuc {
     if (maskeleMetin(m) !== m) return { ok: false, sebep: 'pii' }
   }
   return { ok: true }
+}
+
+// Depodaki değer bozuksa (elle düzenlenmiş, eski biçim, yarım yazma) itiraz yolunu
+// patlatmasın: çözülemeyen kayıt "ayrışma yok" sayılır ve akış `vardi` ile biter.
+function oku(ham: string): { analiz?: { skor?: number } } | null {
+  try { return JSON.parse(ham) } catch { return null }
 }
 
 export function onbellekRotalari(depo: Depo, ayar: Ayar): Hono {
@@ -149,15 +180,33 @@ export function onbellekRotalari(depo: Depo, ayar: Ayar): Hono {
       const denetim = denetle(cozum.data.analiz)
       if (!denetim.ok) return c.json({ hata: denetim.sebep }, 422)
 
+      const kayitAnahtar = `analiz:${cozum.data.anahtar}`
+      // Koşullu yazma ÖNCE denenir: mutlu yol tek atomik işlem kalsın. Önce okuyup
+      // sonra yazmak, iki eşzamanlı yazmanın ikisinin de "yok" görmesine yol açardı.
       const yazildi = await depo.yazYoksa(
-        `analiz:${cozum.data.anahtar}`,
+        kayitAnahtar,
         JSON.stringify({ analiz: cozum.data.analiz, ts: Date.now() }),
         ayar.ttlSn
       )
-      // Zaten kayıt varsa bu bir HATA DEĞİL: iki kullanıcı aynı ilanı aynı anda
+      if (yazildi) return c.json({ durum: 'yazildi' }, 201)
+
+      // Kayıt zaten vardı. Bu bir HATA DEĞİL: iki kullanıcı aynı ilanı aynı anda
       // açtığında normal sonuç. İstemcinin bunu hatadan ayırması gerekiyor, yoksa
       // kullanıcıya sebepsiz uyarı gösterir.
-      return c.json({ durum: yazildi ? 'yazildi' : 'vardi' }, yazildi ? 201 : 200)
+      const mevcut = await depo.oku(kayitAnahtar)
+      if (mevcut && ayrisiyorMu(oku(mevcut)?.analiz?.skor, cozum.data.analiz.skor)) {
+        // İtiraz sayacı kayıttan BAĞIMSIZ yaşar ve silinmez. Sayaç da silinseydi
+        // saldırgan döngüye girerdi: sil, yeniden yaz, yine sil. Sayaç ayakta
+        // kalınca eşiği aşmış bir anahtar TTL boyunca önbelleğe alınamaz hâlde
+        // kalıyor — tartışmalı ilan paylaşılmıyor, kimse zarar görmüyor.
+        const n = await depo.sayacArtir(`itiraz:${cozum.data.anahtar}`, ayar.ttlSn)
+        if (n >= ITIRAZ_ESIGI) {
+          await depo.sil(kayitAnahtar)
+          return c.json({ durum: 'itirazlaSilindi' }, 200)
+        }
+        return c.json({ durum: 'itiraz' }, 200)
+      }
+      return c.json({ durum: 'vardi' }, 200)
     })
 
   return app

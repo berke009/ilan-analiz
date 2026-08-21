@@ -4,9 +4,9 @@
 // uygulama gerekiyor; ayrıca kendi sunucusunda Valkey çalıştırmak istemeyen biri
 // (tek kullanıcılık kurulum) bellek deposuyla da yola devam edebilsin.
 //
-// YÜZEY DAR TUTULDU: üç işlem. Depoya "sadece şu üç şey yapılabilir" demek, ileride
-// buraya kullanıcı verisi biriktiren bir uç eklemeyi zorlaştırıyor — bu projede bu
-// bir özellik, sınırlama değil.
+// YÜZEY DAR TUTULDU: oku, koşullu yaz, sil, say. Depoya "sadece şunlar yapılabilir"
+// demek, ileride buraya kullanıcı verisi biriktiren bir uç eklemeyi zorlaştırıyor —
+// bu projede bu bir özellik, sınırlama değil.
 export type Depo = {
   oku(anahtar: string): Promise<string | null>
   // İLK YAZAN KAZANIR: kayıt varsa üstüne YAZILMAZ, false döner. Zehirlenme
@@ -16,6 +16,10 @@ export type Depo = {
   // ikisi arasında süreç ölünce anahtar süresiz kalır ve o kimlik/IP kalıcı olarak
   // limitlenmiş olur — kendi kullanıcılarına kalıcı 429 vermenin en sessiz yolu.
   sayacArtir(anahtar: string, pencereSn: number): Promise<number>
+  // İtiraz eşiğini aşan kaydı silmek için. Yazma yolunun tersi: ilk yazan kazanır
+  // kuralı kaydı DEĞİŞTİRİLEMEZ yapıyor, sil ise KALDIRILABİLİR bırakıyor. İkisi
+  // birlikte, zehirli bir kaydın üstüne yazılamamasını ama kaldırılabilmesini sağlıyor.
+  sil(anahtar: string): Promise<void>
   saglikli(): Promise<boolean>
   kapat(): Promise<void>
 }
@@ -35,6 +39,7 @@ export function bellekDepo(): Depo {
       kutu.set(a, { deger: d, sonGecerlilik: Date.now() + ttl * 1000 })
       return true
     },
+    async sil(a) { kutu.delete(a) },
     async sayacArtir(a, pencereSn) {
       const v = tazele(a)
       const n = v ? Number(v.deger) + 1 : 1
@@ -71,6 +76,7 @@ export async function valkeyDepo(url: string): Promise<Depo> {
   return {
     async oku(a) { return istemci.get(a) },
     async yazYoksa(a, d, ttl) { return (await istemci.set(a, d, 'EX', ttl, 'NX')) === 'OK' },
+    async sil(a) { await istemci.del(a) },
     async sayacArtir(a, pencereSn) { return Number(await istemci.eval(SAYAC_BETIK, 1, a, String(pencereSn))) },
     async saglikli() { try { return (await istemci.ping()) === 'PONG' } catch { return false } },
     async kapat() { await istemci.quit() }
@@ -90,6 +96,7 @@ export function toleransli(depo: Depo): Depo {
   return {
     oku: a => yut(() => depo.oku(a), null),
     yazYoksa: (a, d, t) => yut(() => depo.yazYoksa(a, d, t), false),
+    sil: a => yut(() => depo.sil(a), undefined as void),
     // Sayaç okunamıyorsa limit UYGULANAMAZ demektir. 0 dönmek "limit dolmadı"
     // anlamına gelir ve depo çöktüğünde limitler tamamen açılır. Bu bilinçli:
     // alternatif, depo çökünce herkese 429 vermek. Uçların kendisi zaten depo

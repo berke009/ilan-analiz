@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { GIZLILIK_HTML } from './gizlilik'
 import { onbellekRotalari } from './onbellek'
+import { ANASAYFA_HTML } from './anasayfa'
 import { ayarOku, type Ayar } from './yapilandirma'
 import { bellekDepo, toleransli, valkeyDepo, type Depo } from './depo'
 
@@ -26,6 +27,9 @@ export function makeApp(ayar: Ayar = ayarOku(), depo?: Depo): Hono {
   })
   app.get('/gizlilik', c => c.html(GIZLILIK_HTML))
   if (ayar.acik) {
+    // Kök sayfa: adres public, birileri tarayıcıyla açacak. Boş 404 "gizlenen bir şey
+    // var" izlenimi verir; uçları ve neyin saklandığını yazmak en ucuz güven işareti.
+    app.get('/', c => c.html(ANASAYFA_HTML(ayar.depoUrl, ayar.ttlSn)))
     // Depo verilmediyse bellek içi: tek süreçlik kurulum ve testler için. Üretimde
     // aşağıdaki önyükleme Valkey'i bağlayıp buraya geçiriyor.
     app.route('/v1', onbellekRotalari(depo ?? toleransli(bellekDepo()), ayar))

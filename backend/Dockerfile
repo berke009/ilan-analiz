@@ -18,6 +18,10 @@ COPY backend/src backend/src
 COPY backend/tsconfig.json backend/
 
 ENV NODE_ENV=production
+# Yığın tavanı, compose'daki konteyner tavanının (512M) ALTINDA. Verilmezse Node
+# tavanı cgroup'tan okumayabiliyor ve süreç sınırı aşıp OOM ile öldürülüyor; oysa
+# yığın sınırına çarpıp isteği reddetmek toparlanabilir bir hatadır.
+ENV NODE_OPTIONS=--max-old-space-size=384
 EXPOSE 3000
 # tsx TypeScript'i doğrudan çalıştırıyor: bu sunucu 300 satır ve derleme adımı
 # eklemek, okunan kod ile çalışan kod arasına gereksiz bir çeviri sokardı.

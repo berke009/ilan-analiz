@@ -106,7 +106,7 @@ Paylaşılan önbelleği kendi sunucunuzla derlemek isterseniz adres derleme zam
 verilir; verilmezse özellik pakette hiç bulunmaz:
 
 ```bash
-PAYLASIM_KOK=https://onbellek.alanadiniz.com pnpm --filter extension build
+PAYLASIM_KOK=https://iacache.c3t.com.tr pnpm --filter extension build
 ```
 
 ## Paylaşılan önbellek (isteğe bağlı)

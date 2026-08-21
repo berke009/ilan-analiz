@@ -22,6 +22,11 @@ services:
       - 512mb
       - --maxmemory-policy
       - allkeys-lru
+    # Konteyner tavanı, Valkey'in kendi maxmemory'sinin ÜSTÜNDE olmalı: eşit olursa
+    # 512mb veri + istemci tamponları OOM killer'ı tetikler ve önbellek, dolduğu için
+    # eskiyi atmak yerine çöker.
+    cpus: 1.0
+    mem_limit: 768m
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
@@ -41,6 +46,12 @@ services:
       # zaten yalnız compose ağında, host'a hiçbir port yayınlanmıyor.
       BIND: 0.0.0.0
       PORT: "3000"
+    # Public bir uç veriyoruz ve "kimin gönderdiği" kanıtlanamıyor (bkz. docs).
+    # O yüzden asıl savunma, en kötü durumda ne kaybedileceğini SINIRLAMAK: sel
+    # gelirse bu konteyner doyar, makinenin geri kalanı ayakta kalır. Uygulama
+    # limitleri ve Cloudflare kuralları ilk hat; bu, son hat.
+    cpus: 1.0
+    mem_limit: 512m
     depends_on:
       valkey:
         condition: service_healthy
@@ -51,5 +62,7 @@ services:
     # Tünel jetonu Cloudflare panelinden (Zero Trust → Networks → Tunnels) alınır ve
     # .env'e yazılır. Depoya ASLA girmez.
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    cpus: 0.5
+    mem_limit: 256m
     depends_on:
       - backend

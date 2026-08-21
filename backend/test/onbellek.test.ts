@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { makeApp } from '../src/index'
-import { denetle } from '../src/onbellek'
+import { denetle, ayrisiyorMu } from '../src/onbellek'
 import { ayarOku } from '../src/yapilandirma'
 import { bellekDepo, toleransli, type Depo } from '../src/depo'
 import type { PaylasilanAnaliz } from 'shared'
@@ -42,6 +42,25 @@ describe('paylaşım kapalıyken sunucu bugünküyle aynı', () => {
   it('gizlilik sayfası ve sağlık ucu çalışmaya devam eder', async () => {
     expect((await app.request('/gizlilik')).status).toBe(200)
     expect((await (await app.request('/health')).json()).paylasim).toBe(false)
+  })
+
+  it('kök sayfa da YOK — kapalı sunucu bugünküyle birebir aynı', async () => {
+    expect((await app.request('/')).status).toBe(404)
+  })
+})
+
+describe('kök sayfa', () => {
+  // Adres public; birileri tarayıcıyla açacak. Boş 404 "gizlenen bir şey var"
+  // izlenimi verir — uçları ve neyin saklandığını yazmak en ucuz güven işareti.
+  it('açıkken uçları ve saklanmayanları anlatır', async () => {
+    const r = await kur({ DEPO_URL: 'https://github.com/ornek/catal' }).request('/')
+    expect(r.status).toBe(200)
+    const html = await r.text()
+    expect(html).toContain('/v1/onbellek')
+    expect(html).toContain('API anahtar')
+    expect(html).toContain('https://github.com/ornek/catal')
+    // Arama motorlarına girmesin: bu bir ürün sayfası değil, teknik beyan.
+    expect(html).toContain('noindex')
   })
 })
 
@@ -88,6 +107,57 @@ describe('yaz-oku turu', () => {
   it('bozuk anahtar biçimi 400', async () => {
     expect((await kur().request('/v1/onbellek/kisa')).status).toBe(400)
     expect((await kur().request(`/v1/onbellek/${'A'.repeat(64)}`)).status).toBe(400)
+  })
+})
+
+describe('itiraz: çakışan yazma zehir temizliğine çevriliyor', () => {
+  // TTL uzatmak tam tersi olurdu: kayıt zehirliyse ikinci yazan DÜRÜST kullanıcıdır
+  // ve yazması reddedilir — o yazmayla süreyi uzatmak, zehri düzeltmeye çalışan
+  // herkesin zehrin ömrünü uzatması demek olurdu.
+  const uzak = { ...ANALIZ, skor: 1.0 }   // 7.2 ile arası 6.2 → ayrışma
+  const yakin = { ...ANALIZ, skor: 8.0 }  // 7.2 ile arası 0.8 → doğrulama
+
+  it('yakın skorlu ikinci yazma kaydı DOĞRULAR, itiraz sayılmaz', async () => {
+    const app = kur()
+    await yaz(app, { anahtar: ANAHTAR, analiz: ANALIZ })
+    expect(await (await yaz(app, { anahtar: ANAHTAR, analiz: yakin })).json()).toEqual({ durum: 'vardi' })
+    expect((await (await app.request(`/v1/onbellek/${ANAHTAR}`)).json()).analiz.skor).toBe(ANALIZ.skor)
+  })
+
+  it('tek itiraz kaydı DÜŞÜRMEZ', async () => {
+    const app = kur()
+    await yaz(app, { anahtar: ANAHTAR, analiz: ANALIZ })
+    expect(await (await yaz(app, { anahtar: ANAHTAR, analiz: uzak })).json()).toEqual({ durum: 'itiraz' })
+    expect((await app.request(`/v1/onbellek/${ANAHTAR}`)).status).toBe(200)
+  })
+
+  it('iki itiraz kaydı SİLER — tartışmalı ilan paylaşılmaz', async () => {
+    const app = kur()
+    await yaz(app, { anahtar: ANAHTAR, analiz: ANALIZ })
+    await yaz(app, { anahtar: ANAHTAR, analiz: uzak })
+    expect(await (await yaz(app, { anahtar: ANAHTAR, analiz: uzak })).json())
+      .toEqual({ durum: 'itirazlaSilindi' })
+    expect((await app.request(`/v1/onbellek/${ANAHTAR}`)).status).toBe(404)
+  })
+
+  it('itiraz sayacı kayıttan bağımsız yaşar — sil/yaz döngüsü kurulamaz', async () => {
+    // Sayaç da silinseydi saldırgan sonsuza kadar sil-yaz-sil oynayabilirdi.
+    const app = kur()
+    await yaz(app, { anahtar: ANAHTAR, analiz: ANALIZ })
+    await yaz(app, { anahtar: ANAHTAR, analiz: uzak })
+    await yaz(app, { anahtar: ANAHTAR, analiz: uzak }) // eşik aşıldı, silindi
+    await yaz(app, { anahtar: ANAHTAR, analiz: ANALIZ }) // yeniden yazıldı
+    expect(await (await yaz(app, { anahtar: ANAHTAR, analiz: uzak })).json())
+      .toEqual({ durum: 'itirazlaSilindi' })
+  })
+
+  it('ayrisiyorMu: bağımsız üretimlerin normal oynaması ayrışma sayılmaz', () => {
+    expect(ayrisiyorMu(7.2, 8.0)).toBe(false)
+    expect(ayrisiyorMu(7.2, 5.5)).toBe(false)
+    expect(ayrisiyorMu(7.2, 4.2)).toBe(true)
+    // Skor okunamıyorsa ayrışma İDDİA EDİLEMEZ: bozuk tek bir kayıt yüzünden
+    // sağlam kayıtların rastgele düşmesi, çözdüğünden fazla sorun çıkarır.
+    expect(ayrisiyorMu(undefined, 7.2)).toBe(false)
   })
 })
 
@@ -206,6 +276,7 @@ describe('depo arızası servisi düşürmez', () => {
   const bozukDepo = (): Depo => ({
     oku: async () => { throw new Error('bağlantı yok') },
     yazYoksa: async () => { throw new Error('bağlantı yok') },
+    sil: async () => { throw new Error('bağlantı yok') },
     sayacArtir: async () => { throw new Error('bağlantı yok') },
     saglikli: async () => { throw new Error('bağlantı yok') },
     kapat: async () => {}

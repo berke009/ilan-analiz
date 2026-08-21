@@ -39,18 +39,22 @@ export async function limitDene(
 
 // Varsayılan limitler. Hepsi ortam değişkeniyle ezilebilir (bkz. yapilandirma.ts).
 //
-// Okuma limitleri CÖMERT: okuma kimseye masraf çıkarmıyor ve bir kullanıcı liste
-// sayfasında gezinirken arka arkaya ilan açabiliyor. Yazma limitleri DAR: her yazma
-// bir Gemini çağrısının ürünü, yani gerçek bir kullanıcı dakikada onlarca yazamaz.
-// Dakikada 30'un üstünü gören şey insan değildir.
+// OKUMA LİMİTLERİ İNSANI DEĞİL SALDIRIYI KESER. Kenar önbelleği (Cloudflare cache
+// rule) okumaların büyük kısmını sunucuya hiç getirmiyor; buraya ulaşanlar yalnız
+// isabetsizlikler. Meşru kullanıcıyı 429'lamanın bedeli, kazandırdığı korumadan
+// büyük — eşikler insan davranışının çok üstünde duruyor ve asıl işleri, tek bir
+// istemcinin sunucuyu döverek herkesin önbelleğini erişilemez kılmasını engellemek.
+//
+// Yazma limitleri DAR: her yazma bir Gemini çağrısının ürünü, yani gerçek bir
+// kullanıcı dakikada onlarca yazamaz. Dakikada 30'un üstünü gören şey insan değildir.
 export const VARSAYILAN_LIMIT = {
-  okumaKimlik: [{ adet: 120, pencereSn: DAKIKA }, { adet: 3000, pencereSn: GUN }],
+  okumaKimlik: [{ adet: 600, pencereSn: DAKIKA }, { adet: 20000, pencereSn: GUN }],
   yazmaKimlik: [{ adet: 30, pencereSn: DAKIKA }, { adet: 300, pencereSn: GUN }],
   // IP limitleri kimlik limitlerinden BELİRGİN ŞEKİLDE geniş: Türkiye'de mobil
   // operatörler CGNAT kullanıyor, yani binlerce gerçek kullanıcı tek IP'den
   // gelebiliyor. IP sayacı burada kimliği taklit eden birine karşı ikinci hat;
   // dar tutulursa meşru kullanıcı kitlesini toptan keser.
-  okumaIp: [{ adet: 1200, pencereSn: DAKIKA }],
+  okumaIp: [{ adet: 6000, pencereSn: DAKIKA }],
   yazmaIp: [{ adet: 240, pencereSn: DAKIKA }],
   // Son emniyet supabı: kimlik ve IP çeşitlendiren dağıtık bir yazma seline karşı
   // deponun büyümesini sınırlar. Aşıldığında okuma çalışmaya DEVAM eder.
