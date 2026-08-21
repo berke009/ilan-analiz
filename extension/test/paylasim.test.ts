@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { paylasimAyari, paylasimAc, paylasimKapat, paylasimIstemcisi, izinVarMi } from '../src/paylasim'
+import { paylasimAyari, paylasimAc, paylasimKapat, paylasimIstemcisi, izinVarMi, paylasimAcikMi } from '../src/paylasim'
 import type { PaylasilanAnaliz } from 'shared'
 
 const KOK = 'https://onbellek.ornek.test'
@@ -80,12 +80,60 @@ describe('açma ve kapatma', () => {
     expect(kutu.paylasimAcik).toBe(true)
   })
 
-  it('izin reddedilirse tercih AÇILMAZ — yarım açık durum olmaz', async () => {
+  it('TERCİH İZİN DİYALOĞUNDAN ÖNCE yazılır — popup kapanırsa bile kaydedilmiş olur', async () => {
+    // Chrome, permissions.request() diyaloğunu açtığında action popup'ını KAPATIYOR;
+    // belge yok edilince await'ten sonraki satırlar hiç çalışmıyor. Tercihi sonra
+    // yazan sürüm canlıda şunu üretti: izin verildi, bayrak yazılmadı, özellik
+    // sessizce kapalı kaldı ve hiçbir istek çıkmadı.
+    const { kutu } = ortamKur()
+    let istekAninda: unknown
+    ;(globalThis as any).chrome.permissions.request = async ({ origins }: any) => {
+      istekAninda = kutu.paylasimAcik // popup burada ölebilir
+      return true
+    }
+    await paylasimAc(KOK)
+    expect(istekAninda).toBe(true)
+  })
+
+  it('popup izin diyaloğunda ölse bile ayar geçerli olur', async () => {
+    const { kutu, izinler } = ortamKur()
+    // Popup ölümü: request izni verir ama promise'i çözmez, sonraki satırlar çalışmaz.
+    ;(globalThis as any).chrome.permissions.request = ({ origins }: any) => {
+      origins.forEach((o: string) => izinler.add(o))
+      return new Promise(() => {}) // hiç çözülmez
+    }
+    void paylasimAc(KOK)
+    await new Promise(r => setTimeout(r, 0))
+    expect(kutu.paylasimAcik).toBe(true)
+    expect(await paylasimAyari(KOK)).not.toBeNull()
+  })
+
+  it('izin reddedilirse tercih GERİ ALINIR — yarım açık durum olmaz', async () => {
+    // Tercih izinden önce yazıldığı için reddedilme hâlinde geri alınması gerekiyor.
+    // Geri alınmasa bile izin kapısı geçilmezdi; bu, ikinci savunma.
     const { kutu, istekler } = ortamKur()
     istekler.verilecek = false
     expect(await paylasimAc(KOK)).toBe(false)
-    expect(kutu.paylasimAcik).toBeUndefined()
+    expect(kutu.paylasimAcik).toBe(false)
     expect(await paylasimAyari(KOK)).toBeNull()
+  })
+
+  it('izin dışarıdan geri alınırsa tercih KENDİNİ ONARIR', async () => {
+    // Arayüz ile gerçek davranış ayrışırsa kullanıcı "açık" gördüğü bir özelliğin
+    // neden çalışmadığını anlayamaz.
+    const { kutu, izinler } = ortamKur({ paylasimAcik: true }, true)
+    expect(await paylasimAcikMi(KOK)).toBe(true)
+    izinler.clear() // chrome://extensions üzerinden geri alındı
+    expect(await paylasimAyari(KOK)).toBeNull()
+    expect(kutu.paylasimAcik).toBe(false)
+    expect(await paylasimAcikMi(KOK)).toBe(false)
+  })
+
+  it('paylasimAcikMi GERÇEK kapıya bakar, yalnız izne değil', async () => {
+    // İzin var ama tercih yok: arayüz "Açık" göstermemeli, çünkü istek çıkmayacak.
+    ortamKur({}, true)
+    expect(await izinVarMi(KOK)).toBe(true)
+    expect(await paylasimAcikMi(KOK)).toBe(false)
   })
 
   it('kapatmak İZNİ DE geri alır ve kimliği siler', async () => {

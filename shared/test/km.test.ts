@@ -59,3 +59,40 @@ describe('kmDurumu', () => {
     expect(kmDurumu(100000, null, 'Otomobil', 'Dizel', 2026)).toBeNull()
   })
 })
+
+describe('6.000 km eşiği', () => {
+  // İkinci el araç ticaretindeki 6 ay / 6.000 km sınırı yüzünden araçlar eşiğin
+  // hemen üstünde ilana giriyor. 6.001 km bir kullanım verisi değil, aracın
+  // satılabilir hâle geldiği nokta — yaşa oranlamak burada anlamsız.
+  it('genç araçta eşiğin hemen üstü ŞÜPHELİ SAYILMAZ', () => {
+    const d = kmDurumu(6001, 2025, 'Otomobil', 'Benzin', 2026)!
+    expect(d.etiket).toBe('sifir-ayarinda')
+    expect(d.yorum).not.toContain('km düşürülmüş')
+    expect(d.yorum).toContain('6.000')
+  })
+
+  it('eşik bandının tamamı: 6.000–7.000', () => {
+    for (const km of [6000, 6100, 6500, 7000]) {
+      expect(kmDurumu(km, 2025, 'Otomobil', 'Benzin', 2026)!.etiket, `${km} km`).toBe('sifir-ayarinda')
+    }
+  })
+
+  it('eşiğin ALTI eşik değildir — satılamayacak araç zaten ilanda olmamalı', () => {
+    expect(kmDurumu(5999, 2025, 'Otomobil', 'Benzin', 2026)!.etiket).toBe('cok-dusuk')
+  })
+
+  it('eşiğin ÜSTÜ normal akışa döner', () => {
+    expect(kmDurumu(7001, 2025, 'Otomobil', 'Benzin', 2026)!.etiket).toBe('cok-dusuk')
+  })
+
+  it('ESKİ araçta 6.001 km GERÇEKTEN şüphelidir — eşik kuralı uygulanmaz', () => {
+    // 10 yaşındaki bir aracın 6.001 km'si satış eşiğiyle ilgili değil; km düşürme
+    // şüphesi burada yerinde ve kırmızı bayrak çıkmaya devam etmeli.
+    expect(kmDurumu(6001, 2016, 'Otomobil', 'Benzin', 2026)!.etiket).toBe('cok-dusuk')
+  })
+
+  it('eşik yaş sınırı 2 yıl', () => {
+    expect(kmDurumu(6001, 2024, 'Otomobil', 'Benzin', 2026)!.etiket).toBe('sifir-ayarinda')
+    expect(kmDurumu(6001, 2023, 'Otomobil', 'Benzin', 2026)!.etiket).toBe('cok-dusuk')
+  })
+})

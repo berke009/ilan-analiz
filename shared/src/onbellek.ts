@@ -22,7 +22,7 @@ import { BayrakSchema, type AnalysisResult, type FiyatIstatistik } from './schem
 // Anahtarın parçası. Prompt, model çıktısının şeması veya paylaşılan alanların anlamı
 // değiştiğinde ARTIRILMALI: eski kayıtlar yeni sürüme hiç eşleşmez ve kendiliğinden
 // TTL ile düşer. Artırmayı unutmak, yeni uzantının eski biçimli metni göstermesi demek.
-export const PAYLASIM_SURUM = 1
+export const PAYLASIM_SURUM = 2
 
 // Metin uzunlukları ŞEMADA sınırlı. Sunucu tarafında gövde boyutu ayrıca sınırlanıyor
 // ama asıl savunma burası: 200 KB'lık tek bir "özet" gövde limitine takılmadan geçip

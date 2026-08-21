@@ -61,7 +61,7 @@ export const KronikSorunSchema = z.object({
 export const KmDurumSchema = z.object({
   beklenenKm: z.number(),
   oran: z.number(),
-  etiket: z.enum(['cok-dusuk', 'dusuk', 'normal', 'yuksek', 'cok-yuksek']),
+  etiket: z.enum(['sifir-ayarinda', 'cok-dusuk', 'dusuk', 'normal', 'yuksek', 'cok-yuksek']),
   yorum: z.string()
 })
 

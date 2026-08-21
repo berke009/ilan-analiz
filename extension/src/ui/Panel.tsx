@@ -24,11 +24,15 @@ const HATA_METNI: Record<string, string> = {
 }
 
 const KM_ETIKET: Record<string, string> = {
-  'cok-dusuk': 'Şüpheli Düşük', dusuk: 'Düşük KM', normal: 'Normal KM',
-  yuksek: 'Yüksek KM', 'cok-yuksek': 'Çok Yüksek KM'
+  'sifir-ayarinda': 'Sıfır Ayarında', 'cok-dusuk': 'Şüpheli Düşük', dusuk: 'Düşük KM',
+  normal: 'Normal KM', yuksek: 'Yüksek KM', 'cok-yuksek': 'Çok Yüksek KM'
 }
-const KM_RENK: Record<string, 'yesil' | 'sari' | 'kirmizi'> = {
-  'cok-dusuk': 'kirmizi', dusuk: 'sari', normal: 'yesil', yuksek: 'sari', 'cok-yuksek': 'kirmizi'
+// 'sifir-ayarinda' NÖTR: uyarı değil, bilgi. Sarı/kırmızı vermek 6.000 km eşiğinin
+// hemen üstündeki normal bir ilanı şüpheli göstermek olurdu; uyarı renkleri gerçek
+// bayrakların işareti kalmalı.
+const KM_RENK: Record<string, 'yesil' | 'sari' | 'kirmizi' | 'notr'> = {
+  'sifir-ayarinda': 'notr', 'cok-dusuk': 'kirmizi', dusuk: 'sari', normal: 'yesil',
+  yuksek: 'sari', 'cok-yuksek': 'kirmizi'
 }
 const ONEM_ETIKET: Record<string, string> = { yuksek: 'Yüksek', orta: 'Orta', dusuk: 'Düşük' }
 const ONEM_RENK: Record<string, string> = { yuksek: 'kirmizi', orta: 'sari', dusuk: 'notr' }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks'
-import { PAYLASIM_KOK, izinVarMi, paylasimAc, paylasimKapat } from '../paylasim'
+import { PAYLASIM_KOK, paylasimAcikMi, paylasimAc, paylasimKapat } from '../paylasim'
 
 // Paylaşılan önbellek rıza kutusu.
 //
@@ -18,9 +18,10 @@ export function Paylasim() {
 
   useEffect(() => {
     if (!PAYLASIM_KOK) return
-    // İzin tarayıcı ayarlarından geri alınmış olabilir; kendi bayrağımızı değil
-    // tarayıcının gerçeğini soruyoruz.
-    izinVarMi().then(v => setDurum(v ? { ad: 'acik' } : { ad: 'kapali' }))
+    // GERÇEK kapıya bakılıyor: tercih + izin. Yalnız izne bakmak, tercihi
+    // yazılamamış bir kurulumda "Açık" gösterip hiçbir istek atmamak demekti.
+    // İzin tarayıcı ayarlarından geri alınmışsa paylasimAyari bayrağı da indiriyor.
+    paylasimAcikMi().then(v => setDurum(v ? { ad: 'acik' } : { ad: 'kapali' }))
   }, [])
 
   if (!PAYLASIM_KOK) return null

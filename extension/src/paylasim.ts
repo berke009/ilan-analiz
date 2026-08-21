@@ -55,22 +55,51 @@ export async function izinVarMi(kok = PAYLASIM_KOK): Promise<boolean> {
 }
 
 // Kullanıcı tercihi + izin birlikte. Biri eksikse paylaşım YOK.
+//
+// KENDİNİ ONARIR: izin geri alınmışsa bayrak da indirilir. İkisi ayrışmış hâlde
+// kalırsa arayüz ile gerçek davranış birbirini tutmuyor ve kullanıcı "açık" gördüğü
+// bir özelliğin neden çalışmadığını anlayamıyor.
 export async function paylasimAyari(kok = PAYLASIM_KOK): Promise<PaylasimAyar | null> {
   if (!kok) return null
-  if ((await tarayici.storage.local.get(DEPO_ACIK))[DEPO_ACIK] !== true) return null
-  if (!(await izinVarMi(kok))) return null
+  const tercih = (await tarayici.storage.local.get(DEPO_ACIK))[DEPO_ACIK] === true
+  const izin = await izinVarMi(kok)
+  if (!izin) {
+    if (tercih) await tarayici.storage.local.set({ [DEPO_ACIK]: false })
+    return null
+  }
+  if (!tercih) return null
   return { kok: kok.replace(/\/+$/, ''), kimlik: await kimlikGetir() }
 }
 
 // Açma AKIŞI POPUP'TA çalışmalı: permissions.request kullanıcı hareketi istiyor,
 // service worker'dan çağrılırsa tarayıcı sessizce reddediyor.
+//
+// TERCİH İZİNDEN ÖNCE YAZILIR ve sırası hayatidir. Chrome, permissions.request()
+// izin diyaloğunu açtığında action popup'ını KAPATIYOR; belge yok edilince
+// await'ten sonraki satırlar hiç çalışmıyor. Tercihi sonra yazan sürüm bu yüzden
+// canlıda şunu üretti: kullanıcı izni verdi, bayrak hiç yazılmadı, özellik sessizce
+// kapalı kaldı ve hiçbir istek çıkmadı — üstelik popup "Açık" gösteriyordu.
+//
+// Önce yazmanın bedeli, kullanıcı diyaloğu reddederse bayrağın açık kalması. Bu
+// zararsız: izin kapısı zaten geçilmiyor, ve iki yerde temizleniyor — burada geri
+// alınarak, paylasimAyari'de de kendini onararak.
 export async function paylasimAc(kok = PAYLASIM_KOK): Promise<boolean> {
   if (!kok) return false
-  const verildi = await tarayici.permissions?.request({ origins: [kokDeseni(kok)] })
-  if (!verildi) return false
   await tarayici.storage.local.set({ [DEPO_ACIK]: true })
   await kimlikGetir()
+  const verildi = await tarayici.permissions?.request({ origins: [kokDeseni(kok)] })
+  // Buraya ulaşabildiysek popup hayatta demektir; reddedildiyse geri al.
+  if (!verildi) {
+    await tarayici.storage.local.set({ [DEPO_ACIK]: false })
+    return false
+  }
   return true
+}
+
+// Arayüzün göstereceği durum: GERÇEK kapı, yalnız izin değil. İzne bakmak, tercih
+// yazılamamış bir kurulumda "Açık" gösterip hiçbir istek atmamak demekti.
+export async function paylasimAcikMi(kok = PAYLASIM_KOK): Promise<boolean> {
+  return (await paylasimAyari(kok)) != null
 }
 
 // Kapatınca izin de GERİ ALINIR ve kimlik SİLİNİR. Yalnız bayrağı indirmek,
