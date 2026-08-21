@@ -26,6 +26,12 @@ export const PAYLASIM_KOK: string =
 
 const DEPO_ACIK = 'paylasimAcik'
 const DEPO_KIMLIK = 'istemciKimlik'
+// Kullanıcı katılmayı SEÇTİ ama tarayıcı izni henüz tamamlanmadı. Ayrı bir anahtar,
+// çünkü bu bir kapı değil yalnız bir niyet: hiçbir isteğe yetki vermez. Kurulumda
+// kutu işaretli gelirken izin diyaloğu popup'ı kapatıp akışı yarıda bırakabiliyor;
+// niyeti saklamazsak kullanıcı "katıl" demiş olmasına rağmen hiçbir iz kalmıyor ve
+// bir daha karşısına çıkmıyor.
+const DEPO_ISTEK = 'paylasimIstek'
 
 // Okuma isteği ANALİZİ BEKLETMEZ. Sunucu yavaşsa ya da erişilemiyorsa kullanıcı
 // bunu fark bile etmemeli: zaman aşımında sessizce kendi anahtarıyla üretilir.
@@ -94,9 +100,29 @@ export async function paylasimAc(kok = PAYLASIM_KOK): Promise<boolean> {
   // Buraya ulaşabildiysek popup hayatta demektir; reddedildiyse geri al.
   if (!verildi) {
     await tarayici.storage.local.set({ [DEPO_ACIK]: false })
+    // Niyet de düşer: kullanıcı diyaloğa HAYIR dedi. Bunu saklamak, aynı soruyu
+    // her popup açılışında tekrar sormak olurdu — reddi görmezden gelmek.
+    await paylasimIstekTemizle()
     return false
   }
+  await paylasimIstekTemizle()
   return true
+}
+
+// Kurulumda "katıl" işaretiyle gelen kullanıcının niyeti. İzin isteğinden ÖNCE
+// yazılır: sonrası çalışmayabilir.
+export async function paylasimIstekYaz(): Promise<void> {
+  await tarayici.storage.local.set({ [DEPO_ISTEK]: true })
+}
+
+export async function paylasimIstekTemizle(): Promise<void> {
+  await tarayici.storage.local.remove(DEPO_ISTEK)
+}
+
+// Yalnız arayüz ipucu: "bu kullanıcı katılmak istemişti, izin adımı yarım kaldı".
+// Hiçbir isteği yetkilendirmez.
+export async function paylasimIstekVarMi(): Promise<boolean> {
+  return (await tarayici.storage.local.get(DEPO_ISTEK))[DEPO_ISTEK] === true
 }
 
 // Arayüzün göstereceği durum: GERÇEK kapı, yalnız izin değil. İzne bakmak, tercih
@@ -111,6 +137,7 @@ export async function paylasimAcikMi(kok = PAYLASIM_KOK): Promise<boolean> {
 export async function paylasimKapat(kok = PAYLASIM_KOK): Promise<void> {
   await tarayici.storage.local.set({ [DEPO_ACIK]: false })
   await tarayici.storage.local.remove(DEPO_KIMLIK)
+  await paylasimIstekTemizle()
   if (kok) await tarayici.permissions?.remove({ origins: [kokDeseni(kok)] })
 }
 

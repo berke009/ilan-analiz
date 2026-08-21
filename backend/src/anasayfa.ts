@@ -45,8 +45,9 @@ a { color:var(--vurgu) }
 <div class="kutu"><p>Bu sunucu <strong>analiz üretmez</strong>: model çağırmaz, API anahtarı
 görmez, ilan içeriği almaz. Tek işi, uzantı kullanıcılarının kendi anahtarlarıyla
 ürettiği analiz <strong>metnini</strong> ${Math.round(ttlSn / 3600)} saat boyunca tutup
-aynı ilanı açan diğer katılımcılara vermek. Katılım gönüllü ve karşılıklıdır; uzantıda
-varsayılan olarak kapalıdır.</p></div>
+aynı ilanı açan diğer katılımcılara vermek. Katılım gönüllü ve karşılıklıdır: uzantı
+kurulumunda açıkça sorulur ve kullanıcı tarayıcının izin penceresini onaylamadan bu
+adrese <strong>hiçbir istek gitmez</strong>.</p></div>
 
 <h2>Ne saklanıyor</h2>
 <table>

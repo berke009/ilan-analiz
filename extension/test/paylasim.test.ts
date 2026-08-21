@@ -1,5 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { paylasimAyari, paylasimAc, paylasimKapat, paylasimIstemcisi, izinVarMi, paylasimAcikMi } from '../src/paylasim'
+import {
+  paylasimAyari, paylasimAc, paylasimKapat, paylasimIstemcisi, izinVarMi, paylasimAcikMi,
+  paylasimIstekYaz, paylasimIstekVarMi, paylasimIstekTemizle
+} from '../src/paylasim'
 import type { PaylasilanAnaliz } from 'shared'
 
 const KOK = 'https://onbellek.ornek.test'
@@ -231,5 +234,44 @@ describe('yazma sunucunun kararını taşır', () => {
   it('ağ hatası null, istisna fırlatmaz', async () => {
     const f: any = async () => { throw new Error('ağ yok') }
     expect(await paylasimIstemcisi(ayar, f).yaz(ANAHTAR, ANALIZ)).toBeNull()
+  })
+})
+
+// Katılma NİYETİ, katılmanın kendisi değil. İzin diyaloğu popup'ı kapattığı için
+// niyet izinden önce yazılıyor; bu testler onun bir kapıya dönüşmediğini sabitliyor.
+describe('yarım kalan katılım niyeti', () => {
+  it('niyet TEK BAŞINA paylaşımı açmaz — kapı hâlâ tercih + izin', async () => {
+    ortamKur({ paylasimIstek: true }, true)
+    expect(await paylasimIstekVarMi()).toBe(true)
+    expect(await paylasimAyari(KOK)).toBeNull()
+  })
+
+  it('yazılan niyet okunur, temizlenince gider', async () => {
+    ortamKur()
+    expect(await paylasimIstekVarMi()).toBe(false)
+    await paylasimIstekYaz()
+    expect(await paylasimIstekVarMi()).toBe(true)
+    await paylasimIstekTemizle()
+    expect(await paylasimIstekVarMi()).toBe(false)
+  })
+
+  it('izin verilince niyet düşer — tamamlanmış adım tekrar sorulmaz', async () => {
+    const { kutu } = ortamKur({ paylasimIstek: true })
+    expect(await paylasimAc(KOK)).toBe(true)
+    expect(kutu['paylasimIstek']).toBeUndefined()
+  })
+
+  it('izin reddedilince de niyet düşer — reddi görmezden gelmiyoruz', async () => {
+    const { kutu, istekler } = ortamKur({ paylasimIstek: true })
+    istekler.verilecek = false
+    expect(await paylasimAc(KOK)).toBe(false)
+    expect(kutu['paylasimAcik']).toBe(false)
+    expect(kutu['paylasimIstek']).toBeUndefined()
+  })
+
+  it('paylaşımdan çıkınca niyet de silinir — soru geri gelmez', async () => {
+    const { kutu } = ortamKur({ paylasimAcik: true, paylasimIstek: true }, true)
+    await paylasimKapat(KOK)
+    expect(kutu['paylasimIstek']).toBeUndefined()
   })
 })

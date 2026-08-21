@@ -5,8 +5,12 @@ harcaması gereksiz. Bu katman, **rıza veren** kullanıcılar arasında analiz 
 paylaşır: sizden önce birinin ürettiği sonucu görürsünüz, sizin ürettiğiniz de aynı ilanı
 açanlara gösterilir. Karşılıklıdır — katılmayan ne görür ne verir.
 
-**Varsayılan olarak kapalıdır.** Bu depoyu klonlayıp `pnpm start` diyen biri, bu katman
-hiç yokmuş gibi bir sunucu alır: rotalar 404 döndürmüyor, hiç kurulmuyor.
+**Derlemede varsayılan olarak yoktur.** Bu depoyu klonlayıp `pnpm start` diyen biri, bu
+katman hiç yokmuş gibi bir sunucu alır: rotalar 404 döndürmüyor, hiç kurulmuyor. Aynı
+şekilde `PAYLASIM_KOK` verilmeden derlenen uzantı paketinde adres de kod da bulunmuyor.
+
+Adres verilerek derlenen pakette katılım **kurulum ekranında önceden işaretli** gelir —
+sebebi ve sınırları için aşağıdaki "Kullanıcı ne görür" bölümüne bakın.
 
 ## Tasarım
 
@@ -263,9 +267,27 @@ Sunucu **analiz üretmez**, model çağırmaz, API anahtarı görmez.
 
 ## Kullanıcı ne görür
 
-Uzantı penceresinde "Paylaşılan önbellek" bölümü, iki yönü de yazan bir metinle: ne
-alıyorsun, ne veriyorsun. Açmak için hem bu onay hem tarayıcının izin sorusu gerekiyor.
-Çıkarken tarayıcı izni geri alınır ve istemci numarası silinir.
+Anahtar kaydetme ekranında, iki yönü de yazan **önceden işaretli** bir onay kutusu: ne
+alıyorsun, ne veriyorsun. Önceden işaretli, çünkü paylaşılan önbellek ancak yeterli
+katılım olursa işe yarıyor ve popup'ın dibindeki bir anahtarı kimse görmüyor. Gizli
+değil: kutu metnin içinde, tek tıkla kalkıyor.
+
+Kutu işaretli kalsa bile **tek başına hiçbir şeyi açmıyor**. Sonrasında tarayıcının
+kendi izin penceresi çıkıyor ve kullanıcı orada hayır derse sunucuya hiçbir istek
+gitmiyor — yani rıza iki kapıdan geçiyor ve ikincisini biz yazmıyoruz.
+
+Sessiz bir `host_permissions` bilinçli olarak SEÇİLMEDİ: izni zorunlu hâle getirmek
+diyaloğu kaldırırdı ama Chrome, zorunlu izin eklenen güncellemede uzantıyı devre dışı
+bırakıp kullanıcıdan yeniden onay ister. Katılım kazanmak için mevcut kullanıcıların
+uzantısını durdurmak kötü bir takas.
+
+İzin penceresi action popup'ını kapattığı için katılma niyeti (`paylasimIstek`) izin
+istenmeden ÖNCE yazılıyor. Akış yarıda kalırsa uzantı penceresi bunu ayrı bir durum
+olarak gösteriyor: "katılmayı seçmiştin, izin tamamlanmadı, tek tık kaldı". Bu bayrak
+bir kapı değil, yalnız arayüz ipucu — hiçbir isteği yetkilendirmiyor.
+
+Uzantı penceresindeki "Paylaşılan önbellek" bölümü her zaman gerçek durumu gösteriyor
+(tercih + izin birlikte). Çıkarken tarayıcı izni geri alınır ve istemci numarası silinir.
 
 Paylaşılan bir sonuç panele basıldığında üstünde şu yazar: bu değerlendirme başka bir
 kullanıcının kendi anahtarıyla N saat önce üretildi, fiyat konumu ve pazarlık hedefi

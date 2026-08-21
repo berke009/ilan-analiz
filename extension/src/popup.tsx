@@ -39,6 +39,13 @@ body { margin: 0; width: 320px; background: var(--zemin); color: var(--metin);
 .ikinciDugme:hover { color: var(--metin); border-color: var(--metin2) }
 .anaDugme:focus-visible, .ikinciDugme:focus-visible { outline: 1px solid var(--metin2); outline-offset: 2px }
 
+.onaySatir { display: flex; gap: 8px; align-items: flex-start; margin-top: 14px; padding: 10px 11px;
+  background: var(--yuzey); border: 1px solid var(--kenar); border-radius: 5px;
+  font: 400 11.5px/1.5 var(--sans); color: var(--metin2); cursor: pointer }
+.onaySatir input { flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--yesil); cursor: pointer }
+.onaySatir b { color: var(--metin); font-weight: 600 }
+.onaySatir:hover { border-color: var(--metin3) }
+
 .hataKutu { margin-top: 12px; padding: 8px 10px; border-left: 2px solid var(--kirmizi);
   background: var(--kirmizi-zemin); color: var(--metin); font: 400 12px/1.45 var(--sans) }
 .ipucu { margin: 10px 0 0; color: var(--metin3); font: 400 11.5px/1.5 var(--sans) }

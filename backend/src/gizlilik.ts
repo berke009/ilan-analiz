@@ -77,11 +77,17 @@ yalnız sizin açtığınız ilan sayfasını okur ve sonucu aynı sayfada göst
 <p>Katıldıysanız aşağıdaki bölümde tek tek yazılı olan analiz metni sunucumuza gelir.
 Bu durumda da kimliğinizi, anahtarınızı ve hangi ilana baktığınızın adresini almayız.</p>
 
-<h2 id="paylasim">Paylaşılan önbellek (isteğe bağlı, varsayılan kapalı)</h2>
+<h2 id="paylasim">Paylaşılan önbellek (isteğe bağlı, kurulumda sorulur)</h2>
 <p>Aynı ilanı birden çok kişi analiz ettiğinde herkesin kendi yapay zekâ kotasını aynı iş
 için harcaması gereksiz. Katılmayı seçen kullanıcılar arasında analiz <strong>metni</strong>
 paylaşılır: sizden önce birinin ürettiği sonucu görürsünüz, sizin ürettiğiniz de aynı ilanı
 açanlara gösterilir. Karşılıklıdır — katılmayan ne görür ne verir.</p>
+<p>Katılım <strong>API anahtarınızı kaydettiğiniz ekranda</strong> sorulur ve kutu
+<strong>önceden işaretli gelir</strong>. Bunu gizlemiyoruz: önbellek ancak yeterli
+katılım olursa işe yarıyor. Kutuyu tek tıkla kaldırabilirsiniz; kaldırmasanız bile
+tarayıcının kendi izin penceresi ikinci bir onay olarak çıkar ve orada
+<em>izin verme</em> derseniz bu sunucuya <strong>hiçbir istek gitmez</strong>.
+Sonradan fikir değiştirmek için uzantı penceresindeki düğme yeterlidir.</p>
 <table>
 <tr><th>Sunucuya giden</th><th>Sunucuya GİTMEYEN</th></tr>
 <tr><td>Analiz metni: skor, durum etiketi, özet, artı/eksi maddeleri, uyarı cümleleri</td>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'preact/hooks'
-import { PAYLASIM_KOK, paylasimAcikMi, paylasimAc, paylasimKapat } from '../paylasim'
+import {
+  PAYLASIM_KOK, paylasimAcikMi, paylasimAc, paylasimKapat, paylasimIstekVarMi
+} from '../paylasim'
 
 // Paylaşılan önbellek rıza kutusu.
 //
@@ -10,7 +12,13 @@ import { PAYLASIM_KOK, paylasimAcikMi, paylasimAc, paylasimKapat } from '../payl
 // PAYLASIM_KOK boşsa (varsayılan derleme) bileşen HİÇ ÇİZİLMEZ: olmayan bir
 // özelliğin kapalı anahtarını göstermek kullanıcıya yanlış bilgi vermek olur.
 
-type Durum = { ad: 'yukleniyor' } | { ad: 'kapali'; reddedildi?: boolean } | { ad: 'acik' }
+// `yarim`: kullanıcı kurulumda katılmayı seçti ama tarayıcı izni tamamlanmadı.
+// Bunu sıradan "kapalı"dan ayırmak gerekiyor — kişi kararını çoktan verdi, ondan
+// yeniden karar vermesini değil yalnız yarım kalan adımı bitirmesini istiyoruz.
+type Durum =
+  | { ad: 'yukleniyor' }
+  | { ad: 'kapali'; reddedildi?: boolean; yarim?: boolean }
+  | { ad: 'acik' }
 
 export function Paylasim() {
   const [durum, setDurum] = useState<Durum>({ ad: 'yukleniyor' })
@@ -21,7 +29,8 @@ export function Paylasim() {
     // GERÇEK kapıya bakılıyor: tercih + izin. Yalnız izne bakmak, tercihi
     // yazılamamış bir kurulumda "Açık" gösterip hiçbir istek atmamak demekti.
     // İzin tarayıcı ayarlarından geri alınmışsa paylasimAyari bayrağı da indiriyor.
-    paylasimAcikMi().then(v => setDurum(v ? { ad: 'acik' } : { ad: 'kapali' }))
+    Promise.all([paylasimAcikMi(), paylasimIstekVarMi()]).then(([acik, istek]) =>
+      setDurum(acik ? { ad: 'acik' } : { ad: 'kapali', yarim: istek }))
   }, [])
 
   if (!PAYLASIM_KOK) return null
@@ -53,9 +62,19 @@ export function Paylasim() {
       ) : (
         <>
           <div class="bilgi">
-            Katılırsan aynı ilanı senden önce analiz eden birinin sonucunu anında
-            görürsün, kendi anahtarın harcanmaz. Karşılığında senin analizlerin de
-            paylaşılır. Katılmak zorunda değilsin; uzantı kapalıyken de tam çalışır.
+            {durum.yarim ? (
+              <>
+                Katılmayı seçmiştin ama tarayıcı izni tamamlanmadı — paylaşım şu an
+                <b> çalışmıyor</b>. Tek tık kaldı; vazgeçtiysen bu bölümü olduğu gibi
+                bırakabilirsin, uzantı böyle de tam çalışır.
+              </>
+            ) : (
+              <>
+                Katılırsan aynı ilanı senden önce analiz eden birinin sonucunu anında
+                görürsün, kendi anahtarın harcanmaz. Karşılığında senin analizlerin de
+                paylaşılır. Katılmak zorunda değilsin; uzantı kapalıyken de tam çalışır.
+              </>
+            )}
           </div>
           {durum.reddedildi && (
             <div class="hataKutu" role="alert">
@@ -63,7 +82,7 @@ export function Paylasim() {
             </div>
           )}
           <button class="anaDugme" type="button" data-rol="paylasim-ac" onClick={ac}>
-            Paylaşıma katıl
+            {durum.yarim ? 'İzni ver ve katılımı tamamla' : 'Paylaşıma katıl'}
           </button>
         </>
       )}

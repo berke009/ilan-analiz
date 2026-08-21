@@ -34,6 +34,9 @@ O katmana dokunuyorsanız iki kuralı bozmayın:
   `backend/test/onbellek.test.ts` → "paylaşım kapalıyken sunucu bugünküyle aynı",
   `extension/test/paylasim.test.ts` → "üç katmanlı kapalılık",
   `extension/test/sw.test.ts` → "KAPALIYKEN sunucumuza hiç istek gitmez".
+  Adres verilerek derlenen pakette kurulum ekranındaki onay kutusu önceden işaretli
+  gelir; bu bir istisna değil, o üç katmanın en üstündeki kullanıcı tercihi. Kutuyu
+  kaldırmak da tarayıcının izin penceresinde hayır demek de tek başına yeterli.
 
 ## Yeni site adaptörü
 
