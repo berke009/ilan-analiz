@@ -62,6 +62,16 @@ describe('kök sayfa', () => {
     // Arama motorlarına girmesin: bu bir ürün sayfası değil, teknik beyan.
     expect(html).toContain('noindex')
   })
+
+  it('uzantı paketi SUNMAZ, sürümler sayfasına yönlendirir', async () => {
+    // Bu adres bir metin önbelleği: ele geçirilse en fazla bir yorumu kirletir.
+    // Aynı adresten çalıştırılabilir paket dağıtmak, ele geçirilmesini "herkese
+    // kötü niyetli uzantı gönder" hâline getirirdi — o uzantı API anahtarlarına
+    // erişebilir. İki işi ayrı tutmak güvenlik sınırının kendisi.
+    const html = await (await kur().request('/')).text()
+    expect(html).toContain('/releases')
+    expect(html).not.toMatch(/\.zip|\.crx|\.xpi/)
+  })
 })
 
 describe('yaz-oku turu', () => {

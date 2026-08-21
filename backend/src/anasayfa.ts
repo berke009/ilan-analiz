@@ -80,6 +80,16 @@ kayıtlar reddedilir.</p>
 üstüne yazılamaz. Ayrışan skorlarla gelen ikinci yazmalar itiraz sayılır ve iki itiraz
 biriken kayıt silinir.</p>
 
+<h2>Uzantıyı nereden alırım</h2>
+<p>Paketler <a href="${depoUrl}/releases" rel="noopener">deponun sürümler sayfasından</a>
+ve mağaza listelemesinden dağıtılır. <strong>Bu adres uzantı paketi sunmaz</strong> ve
+sunmayacak. Burası bir metin önbelleği; ele geçirilse en fazla bir analiz yorumunu
+kirletebilir. Aynı adresten çalıştırılabilir paket dağıtsaydık, ele geçirilmesi
+kullanıcılara doğrudan kötü niyetli bir uzantı göndermek anlamına gelirdi ve o uzantı
+API anahtarlarına erişebilirdi. İki işi ayrı tutmak bu yüzden bilinçli.</p>
+<p>İndirdiğiniz paketi doğrulamak için kaynaktan derleyip karşılaştırabilirsiniz;
+derleme gizli bir değer istemez.</p>
+
 <h2>Kaynak kodu</h2>
 <p>Uzantının ve bu sunucunun tamamı açık kaynak:
 <a href="${depoUrl}" rel="noopener">${depoUrl}</a><br>
