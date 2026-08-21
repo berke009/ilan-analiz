@@ -139,8 +139,33 @@ cp backend/.env.example backend/.env
 docker compose -f backend/docker-compose.yml up -d
 ```
 
-Üç servis kalkar: uygulama, Valkey ve Cloudflare tüneli. **Dışarıya açık port yoktur** —
-tünel dışa doğru bağlanır, gelen bağlantı kabul etmez.
+Üç servis kalkar: uygulama, Valkey ve Cloudflare tüneli. **Hiçbir port yayınlanmaz** —
+tünel dışa doğru bağlanır, gelen bağlantı kabul etmez; uygulamaya yalnız tünel
+konteyneri ulaşabilir.
+
+Ağlar bilerek üçe bölünmüş, ikisi `internal`:
+
+| Ağ | Kim | Sonuç |
+|---|---|---|
+| `disari` | yalnız tünel | internete çıkan tek servis |
+| `on` | tünel ↔ uygulama | uygulamaya başka hiçbir şey ulaşamaz |
+| `arka` | uygulama ↔ Valkey | tünel bu ağda değil: ele geçse depoya uzanamaz |
+
+Uygulamanın ve Valkey'in **internet çıkışı yoktur**. Doğrusu da bu: sunucu model
+çağırmıyor, dış servise gitmiyor, hiçbir giden isteği yok. Çıkışı kapatmak, ele
+geçirilmesi hâlinde veri sızdırılabilecek yolu da kapatıyor.
+
+Tek kilit noktası: `docker compose stop tunel` yalnız dışa açılımı keser (önbellek ve
+veri ayakta kalır), `docker compose down` her şeyi indirir.
+
+**Tünel ile alan adının bölgesi AYNI Cloudflare hesabında olmalı.**
+`<uuid>.cfargotunnel.com` hedefi, bölgenin hesabı o tüneli sahiplenmiyorsa çözülmez ve
+1016 alırsınız — DNS kaydını elle yazmak bunu çözmez.
+
+QUIC (UDP 7844) engelli bir ağdaysanız tünel sessizce bağlanamaz: konteyner ayakta
+görünür ama `failed to dial to edge with quic` döngüsündedir. `TUNEL_PROTOKOL=http2`
+verin; doğru değeri cloudflared'in kendisi söylüyor
+(`docker compose logs tunel | grep suggested_protocol`).
 
 Valkey yerine bellek içi depo da kullanılabilir (`VALKEY_URL` boş bırakılır): tek
 süreçlik küçük kurulum için yeterli, ama süreç yeniden başlayınca önbellek sıfırlanır ve

@@ -1,9 +1,15 @@
 # Paylaşılan önbellek için kendi kendine yeten kurulum: uygulama + Valkey + tünel.
 #
-# DIŞARIYA AÇIK PORT YOK. Cloudflare Tunnel dışa doğru bağlanıyor, gelen bağlantı
-# kabul etmiyor; uygulama yalnız compose ağında görünür. `ports:` eklemek bu kurulumun
-# tek güvenlik varsayımını bozar: IP başlığı (cf-connecting-ip) o zaman istemci
-# tarafından uydurulabilir hâle gelir ve IP hız limiti tamamen anlamsızlaşır.
+# TEK KİLİT NOKTASI. Üç servis de aynı yığında: `docker compose down` her şeyi
+# birlikte indirir, `docker compose stop tunel` ise yalnız dışa açılımı keser —
+# önbellek verisi ve uygulama ayakta kalır. Tüneli ayrı bir sistem servisi olarak
+# çalıştırmak bu iki hareketi de kaybettirirdi.
+#
+# DIŞARIYA AÇIK PORT YOK ve host'a yayınlanan port da yok. Cloudflare Tunnel dışa
+# doğru bağlanıp gelen bağlantı kabul etmiyor; uygulamaya yalnız tünel konteyneri
+# ulaşabiliyor. `ports:` eklemek bu kurulumun tek güvenlik varsayımını bozar: IP hız
+# limiti `cf-connecting-ip` başlığına güveniyor ve o başlık, yalnız istekler gerçekten
+# Cloudflare üzerinden geliyorsa güvenilir.
 services:
   valkey:
     image: valkey/valkey:8-alpine
@@ -22,6 +28,8 @@ services:
       - 512mb
       - --maxmemory-policy
       - allkeys-lru
+    # Yalnız arka ağ: dışarıya çıkışı yok, tünel konteyneri de buraya ulaşamaz.
+    networks: [arka]
     # Konteyner tavanı, Valkey'in kendi maxmemory'sinin ÜSTÜNDE olmalı: eşit olursa
     # 512mb veri + istemci tamponları OOM killer'ı tetikler ve önbellek, dolduğu için
     # eskiyi atmak yerine çöker.
@@ -43,15 +51,28 @@ services:
       PAYLASIM_ACIK: "1"
       VALKEY_URL: redis://valkey:6379
       # Konteyner içinde tünelin ulaşabilmesi için tüm arayüzler dinlenir; konteyner
-      # zaten yalnız compose ağında, host'a hiçbir port yayınlanmıyor.
+      # zaten host'a hiçbir port yayınlamıyor ve iki ağı da internete kapalı.
       BIND: 0.0.0.0
       PORT: "3000"
+    # İki iç ağ: tünelden istek alır, Valkey'e yazar. İkisi de internal, yani bu
+    # sunucunun İNTERNETE ÇIKIŞI YOK. Doğru olan da bu: model çağırmıyor, dış
+    # servise gitmiyor, hiçbir giden isteği yok. Çıkışı kapatmak, ele geçirilmesi
+    # hâlinde veri sızdırılabilecek yolu da kapatıyor.
+    networks: [on, arka]
     # Public bir uç veriyoruz ve "kimin gönderdiği" kanıtlanamıyor (bkz. docs).
     # O yüzden asıl savunma, en kötü durumda ne kaybedileceğini SINIRLAMAK: sel
     # gelirse bu konteyner doyar, makinenin geri kalanı ayakta kalır. Uygulama
     # limitleri ve Cloudflare kuralları ilk hat; bu, son hat.
     cpus: 1.0
     mem_limit: 512m
+    # Host'a port yayınlanmadığı için sağlık durumu dışarıdan curl ile bakılamıyor;
+    # `docker compose ps` bunu göstersin diye kontrol konteynerin içinde.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       valkey:
         condition: service_healthy
@@ -61,8 +82,32 @@ services:
     restart: unless-stopped
     # Tünel jetonu Cloudflare panelinden (Zero Trust → Networks → Tunnels) alınır ve
     # .env'e yazılır. Depoya ASLA girmez.
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    #
+    # DİKKAT: tünel ile alan adının bölgesi AYNI Cloudflare hesabında olmalı.
+    # `<uuid>.cfargotunnel.com` hedefi, bölgenin hesabı o tüneli sahiplenmiyorsa
+    # çözülmüyor ve 1016 alınıyor — kaydı elle yazmak bunu çözmez.
+    # --protocol: varsayılan QUIC (UDP 7844). Bazı ağlar/sağlayıcılar UDP 7844'ü
+    # engelliyor ve tünel "failed to dial to edge with quic" ile sonsuz yeniden
+    # dener — bağlanmadığı hâlde konteyner AYAKTA görünür, yani arıza sessizdir.
+    # cloudflared kendi ön kontrolünde doğru protokolü söylüyor:
+    #   docker compose logs tunel | grep suggested_protocol
+    # http2 çıkıyorsa TUNEL_PROTOKOL=http2 verin.
+    command: tunnel --no-autoupdate --protocol ${TUNEL_PROTOKOL:-auto} run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    # Tek internete çıkan servis O. Valkey'i GÖRMÜYOR: ele geçse bile önbellek
+    # deposuna doğrudan uzanamaz, yalnız uygulamanın uçlarına istek atabilir.
+    networks: [disari, on]
     cpus: 0.5
     mem_limit: 256m
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
+networks:
+  # Yalnız tünelin internet erişimi var.
+  disari:
+  # Tünel ↔ uygulama. internal: dışarıya çıkış yok.
+  on:
+    internal: true
+  # Uygulama ↔ Valkey. Tünel bu ağda DEĞİL.
+  arka:
+    internal: true
