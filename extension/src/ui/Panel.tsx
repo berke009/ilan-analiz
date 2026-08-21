@@ -1,4 +1,5 @@
-import type { AnalysisResult, ListRow } from 'shared'
+import { useState } from 'preact/hooks'
+import type { AnalysisResult, ListRow, PaylasimYazDurum } from 'shared'
 import { skorRenk } from './skor'
 import type { Alternatif } from '../alternatif'
 import { tarayici } from '../tarayici'
@@ -6,7 +7,18 @@ import { tarayici } from '../tarayici'
 export type PanelDurum =
   | { asama: 'yukleniyor' } | { asama: 'okunamadi' }
   | { asama: 'hata'; mesaj: string; tekrar: () => void }
-  | { asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[] }
+  // paylasim: sonuç başka bir kullanıcının anahtarıyla üretilip paylaşılan
+  // önbellekten geldiyse dolu. Panel bunu SÖYLEMEK ZORUNDA — başkasının
+  // değerlendirmesini kendi analizin gibi göstermek, kullanıcının bilmesi
+  // gereken tek şeyi saklamak olur.
+  // yenile: paylaşılan sonucu kullanıcının KENDİ anahtarıyla yeniden ürettirir.
+  // Yalnız paylaşılan sonuçta dolu — kendi analizini aynı anahtarla tekrar üretmek
+  // aynı şeyi ikinci kez satın almak olurdu.
+  | {
+    asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]
+    benzerler?: ListRow[]; paylasim?: { ts: number }; yenile?: () => void
+    paylasimDurum?: PaylasimYazDurum
+  }
 
 const tl = (n: number) => n.toLocaleString('tr-TR')
 // Site kökü adaptörden gelir; panelin hangi sitede çalıştığını bilmesi gerekmiyor.
@@ -20,11 +32,15 @@ const HATA_METNI: Record<string, string> = {
 }
 
 const KM_ETIKET: Record<string, string> = {
-  'cok-dusuk': 'Şüpheli Düşük', dusuk: 'Düşük KM', normal: 'Normal KM',
-  yuksek: 'Yüksek KM', 'cok-yuksek': 'Çok Yüksek KM'
+  'sifir-ayarinda': 'Sıfır Ayarında', 'cok-dusuk': 'Şüpheli Düşük', dusuk: 'Düşük KM',
+  normal: 'Normal KM', yuksek: 'Yüksek KM', 'cok-yuksek': 'Çok Yüksek KM'
 }
-const KM_RENK: Record<string, 'yesil' | 'sari' | 'kirmizi'> = {
-  'cok-dusuk': 'kirmizi', dusuk: 'sari', normal: 'yesil', yuksek: 'sari', 'cok-yuksek': 'kirmizi'
+// 'sifir-ayarinda' NÖTR: uyarı değil, bilgi. Sarı/kırmızı vermek 6.000 km eşiğinin
+// hemen üstündeki normal bir ilanı şüpheli göstermek olurdu; uyarı renkleri gerçek
+// bayrakların işareti kalmalı.
+const KM_RENK: Record<string, 'yesil' | 'sari' | 'kirmizi' | 'notr'> = {
+  'sifir-ayarinda': 'notr', 'cok-dusuk': 'kirmizi', dusuk: 'sari', normal: 'yesil',
+  yuksek: 'sari', 'cok-yuksek': 'kirmizi'
 }
 const ONEM_ETIKET: Record<string, string> = { yuksek: 'Yüksek', orta: 'Orta', dusuk: 'Düşük' }
 const ONEM_RENK: Record<string, string> = { yuksek: 'kirmizi', orta: 'sari', dusuk: 'notr' }
@@ -53,7 +69,7 @@ export function Panel({ durum, kok = 'https://www.sahibinden.com' }: { durum: Pa
               : <div><button class="tekrar" data-rol="tekrar" onClick={durum.tekrar}>Tekrar dene</button></div>}
           </div>
         )}
-        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} kok={kok} />}
+        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} paylasim={durum.paylasim} yenile={durum.yenile} paylasimDurum={durum.paylasimDurum} kok={kok} />}
       </div>
     </div>
   )
@@ -73,7 +89,64 @@ function AnahtarCagrisi() {
   )
 }
 
-function Sonuc({ s, alternatifler, benzerler, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; kok: string }) {
+// "3 saat önce" gibi kaba bir yaş. Dakika hassasiyeti kimsenin işine yaramıyor,
+// "ne kadar bayat" sorusunun cevabı yeterli.
+export function yasMetni(ts: number, simdi = Date.now()): string {
+  const dk = Math.max(0, Math.round((simdi - ts) / 60000))
+  if (dk < 60) return `${dk} dakika önce`
+  const saat = Math.round(dk / 60)
+  return saat < 24 ? `${saat} saat önce` : `${Math.round(saat / 24)} gün önce`
+}
+
+// Paylaşılan sonucun kaynak beyanı + yenileme.
+//
+// Yenileme ONAY İSTİYOR ve sebebi maliyet: kullanıcının kendi Gemini kotasından
+// harcıyor. Tek tıkla çalıştırmak, başkasının parasını sormadan harcamak olurdu.
+//
+// Bu düğme aynı zamanda tek gerçekçi ZEHİR TEMİZLEME yolu. Normal akışta paylaşılan
+// bir kayıt hep okunur, hiç üstüne yazılmaz — yani sunucudaki itiraz mekanizması
+// kendiliğinden neredeyse hiç ateşlenmez. Buradan çıkan analiz sunucuya yazılır,
+// sunucu skoru mevcut kayıtla karşılaştırır ve ayrışıyorsa itiraz sayar. Düzeltme
+// böylece bir tıklamanın değil, GERÇEK ikinci bir analizin ürünü oluyor.
+function PaylasimNotu({ ts, yenile }: { ts: number; yenile?: () => void }) {
+  const [soruyor, setSoruyor] = useState(false)
+  return (
+    <div class="bolum paylasimNot" data-rol="paylasim-not">
+      Bu değerlendirme paylaşılan önbellekten geldi — başka bir kullanıcının kendi
+      anahtarıyla {yasMetni(ts)} üretildi. Fiyat konumu, kilometre değerlendirmesi ve
+      pazarlık hedefi senin kendi verinle hesaplandı.
+      {yenile && (soruyor ? (
+        <div class="paylasimOnay" data-rol="paylasim-onay">
+          Analiz kendi Gemini anahtarınla yeniden üretilecek ve bu bir miktar kota
+          harcayacak. Sonuç paylaşılandan belirgin şekilde ayrışırsa o kayıt işaretlenir.
+          <button class="tekrar" data-rol="yenile-onayla" onClick={yenile}>Evet, yenile</button>
+          <button class="tekrar" data-rol="yenile-vazgec" onClick={() => setSoruyor(false)}>Vazgeç</button>
+        </div>
+      ) : (
+        <div>
+          <button class="tekrar" data-rol="yenile" onClick={() => setSoruyor(true)}>
+            Kendi anahtarımla güncelle
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Yenilemenin paylaşılan kayda NE YAPTIĞI. Göstermezsek düğme sessiz bir hiçlik
+// gibi görünür: kullanıcı kendi sonucunu alır ama paylaşılan kaydın durduğunu mu
+// düştüğünü mü bilmez.
+//
+// "Uyumlu çıktı" hâli KASITLI OLARAK bir başarısızlık gibi sunulmuyor: iki bağımsız
+// analizin aynı yere varması, önbelleğin doğru çalıştığının kanıtı.
+const YENILEME_METNI: Record<PaylasimYazDurum, string> = {
+  yazildi: 'Paylaşılan kayıt yoktu; senin sonucun paylaşıma yazıldı.',
+  vardi: 'Senin sonucun paylaşılan kayıtla uyumlu çıktı — kayıt olduğu gibi kaldı.',
+  itiraz: 'Sonucun paylaşılan kayıttan belirgin şekilde ayrıştı ve bu işaretlendi. Bir kullanıcı daha aynı sonuca varırsa o kayıt paylaşımdan düşer.',
+  itirazlaSilindi: 'Paylaşılan kayıt kaldırıldı — bu ilan artık önbellekten servis edilmeyecek.'
+}
+
+function Sonuc({ s, alternatifler, benzerler, paylasim, yenile, paylasimDurum, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number }; yenile?: () => void; paylasimDurum?: PaylasimYazDurum; kok: string }) {
   const renk = skorRenk(s.skor)
   return (
     <>
@@ -90,6 +163,14 @@ function Sonuc({ s, alternatifler, benzerler, kok }: { s: AnalysisResult; altern
           </div>
         </div>
       </div>
+
+      {paylasim && <PaylasimNotu ts={paylasim.ts} yenile={yenile} />}
+
+      {paylasimDurum && (
+        <div class="bolum paylasimNot" data-rol="yenileme-sonucu">
+          Bu analiz senin kendi anahtarınla üretildi. {YENILEME_METNI[paylasimDurum]}
+        </div>
+      )}
 
       {s.chipler.length > 0 && (
         <div class="bolum" data-rol="chip-bolum">

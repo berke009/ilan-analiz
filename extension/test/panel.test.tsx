@@ -194,3 +194,103 @@ describe('anahtar kurulum çağrısı', () => {
     expect(k.textContent).toContain('hız sınırına takıldı')
   })
 })
+
+describe('paylaşılan sonuç beyanı', () => {
+  it('paylaşılan önbellekten gelen sonuç AÇIKÇA söylenir', () => {
+    // Başkasının değerlendirmesini kendi analizin gibi göstermek, kullanıcının
+    // bilmesi gereken tek şeyi saklamak olur.
+    const k = cizdir({ asama: 'hazir', sonuc, paylasim: { ts: Date.now() - 3 * 3600_000 } })
+    const not = k.querySelector('[data-rol="paylasim-not"]')!
+    expect(not).not.toBeNull()
+    expect(not.textContent).toContain('paylaşılan önbellekten')
+    expect(not.textContent).toContain('3 saat önce')
+    // Hangi sayıların yine de kendi verisinden geldiğini de söylemeli
+    expect(not.textContent).toContain('kendi verinle')
+  })
+
+  it('kendi anahtarıyla üretilen sonuçta not YOKTUR', () => {
+    expect(cizdir({ asama: 'hazir', sonuc }).querySelector('[data-rol="paylasim-not"]')).toBeNull()
+  })
+
+  it('yaş metni dakika/saat/gün olarak kabalaşır', async () => {
+    const { yasMetni } = await import('../src/ui/Panel')
+    const simdi = 1_700_000_000_000
+    expect(yasMetni(simdi - 5 * 60_000, simdi)).toBe('5 dakika önce')
+    expect(yasMetni(simdi - 4 * 3600_000, simdi)).toBe('4 saat önce')
+    expect(yasMetni(simdi - 30 * 3600_000, simdi)).toBe('1 gün önce')
+  })
+})
+
+describe('paylaşılan sonucu kendi anahtarıyla güncelleme', () => {
+  // Normal akışta paylaşılan bir kayıt hep OKUNUR, hiç üstüne yazılmaz — yani
+  // sunucudaki itiraz mekanizması kendiliğinden neredeyse hiç ateşlenmez. Bu düğme
+  // tek gerçekçi zehir temizleme yolu: buradan çıkan analiz sunucuya yazılıyor ve
+  // sunucu skoru mevcut kayıtla karşılaştırıp ayrışıyorsa itiraz sayıyor.
+  const paylasim = { ts: Date.now() - 3600_000 }
+  // Preact durum güncellemesini mikro görevde toparlıyor; tıklama sonrası DOM'a
+  // bakmadan önce akıtmak gerekiyor.
+  const tikla = async (k: HTMLElement, rol: string) => {
+    const d = k.querySelector(`[data-rol="${rol}"]`) as HTMLButtonElement | null
+    expect(d, rol).not.toBeNull()
+    d!.click()
+    await new Promise(r => setTimeout(r, 0))
+  }
+
+  it('yenileme ONAY İSTER — tek tıkla kullanıcının kotası harcanmaz', async () => {
+    let cagrildi = 0
+    const k = cizdir({ asama: 'hazir', sonuc, paylasim, yenile: () => { cagrildi++ } })
+    await tikla(k, 'yenile')
+    expect(cagrildi).toBe(0)                                    // henüz çalışmadı
+    const onay = k.querySelector('[data-rol="paylasim-onay"]')!
+    expect(onay).not.toBeNull()
+    expect(onay.textContent).toContain('kota')                  // maliyeti söylüyor
+    await tikla(k, 'yenile-onayla')
+    expect(cagrildi).toBe(1)
+  })
+
+  it('vazgeçmek analizi çalıştırmaz', async () => {
+    let cagrildi = 0
+    const k = cizdir({ asama: 'hazir', sonuc, paylasim, yenile: () => { cagrildi++ } })
+    await tikla(k, 'yenile')
+    await tikla(k, 'yenile-vazgec')
+    expect(cagrildi).toBe(0)
+    expect(k.querySelector('[data-rol="yenile"]')).not.toBeNull()
+  })
+
+  it('KENDİ analizinde yenileme düğmesi YOKTUR', () => {
+    // Aynı anahtarla aynı modeli yeniden çalıştırmak aynı şeyi ikinci kez satın almak.
+    const k = cizdir({ asama: 'hazir', sonuc })
+    expect(k.querySelector('[data-rol="yenile"]')).toBeNull()
+  })
+})
+
+describe('yenilemenin paylaşılan kayda etkisi', () => {
+  // Göstermezsek "Kendi anahtarımla güncelle" sessiz bir hiçlik gibi görünür:
+  // kullanıcı kendi sonucunu alır ama paylaşılan kaydın durup durmadığını bilmez.
+  const metin = (durum: any) =>
+    cizdir({ asama: 'hazir', sonuc, paylasimDurum: durum })
+      .querySelector('[data-rol="yenileme-sonucu"]')?.textContent ?? ''
+
+  it('uyumlu sonuç BAŞARISIZLIK gibi sunulmaz', () => {
+    // İki bağımsız analizin aynı yere varması, önbelleğin doğru çalıştığının kanıtı.
+    expect(metin('vardi')).toContain('uyumlu')
+    expect(metin('vardi')).not.toMatch(/hata|başarısız|reddedildi/i)
+  })
+
+  it('ayrışma işaretlendiğinde bir sonraki adımı söyler', () => {
+    expect(metin('itiraz')).toContain('ayrıştı')
+    expect(metin('itiraz')).toContain('Bir kullanıcı daha')
+  })
+
+  it('kayıt düştüğünde açıkça söylenir', () => {
+    expect(metin('itirazlaSilindi')).toContain('kaldırıldı')
+  })
+
+  it('kayıt yokken yazıldığı söylenir', () => {
+    expect(metin('yazildi')).toContain('paylaşıma yazıldı')
+  })
+
+  it('normal analizde bu satır YOKTUR — iç ayrıntı panelde gürültü olur', () => {
+    expect(cizdir({ asama: 'hazir', sonuc }).querySelector('[data-rol="yenileme-sonucu"]')).toBeNull()
+  })
+})

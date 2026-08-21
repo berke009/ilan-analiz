@@ -114,6 +114,12 @@ export const STIL = `
 .isaretci { flex: 0 0 auto; color: var(--metin3); font: 600 12px/1.45 var(--mono) }
 
 .ozet { font: 400 12px/1.6 var(--sans); color: var(--metin2) }
+/* Paylaşılan sonuç notu: bilgi, uyarı değil. Sarı/kırmızı kullanmıyoruz — bu bir
+   sorun değil, kaynak beyanı; uyarı renkleri gerçek bayrakların işareti kalmalı. */
+.paylasimNot { font: 400 11px/1.5 var(--sans); color: var(--metin3);
+  border-left: 2px solid var(--kenar); padding-left: 9px }
+.paylasimNot .tekrar { margin: 7px 6px 0 0 }
+.paylasimOnay { margin-top: 7px; color: var(--metin2) }
 
 /* Daha iyi alternatifler — tıklanabilir satırlar */
 .altSatir { display: block; padding: 8px 10px; margin-bottom: 6px;

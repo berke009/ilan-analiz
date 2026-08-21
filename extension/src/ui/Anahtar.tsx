@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks'
 import {
   anahtarGetir, anahtarKaydet, anahtarSil, anahtarDogrula, anahtarMaskele, ANAHTAR_HATA
 } from '../anahtar'
+import { PAYLASIM_KOK, paylasimAc, paylasimIstekYaz } from '../paylasim'
 
 const STUDIO = 'https://aistudio.google.com/apikey'
 
@@ -27,7 +28,10 @@ export function Anahtar() {
 function Form({ durum, setDurum }: { durum: Extract<Durum, { ad: 'yok' }>; setDurum: (d: Durum) => void }) {
   const gonder = async (e: Event) => {
     e.preventDefault()
-    const alan = (e.target as HTMLFormElement).elements.namedItem('anahtar') as HTMLInputElement
+    const form = e.target as HTMLFormElement
+    const alan = form.elements.namedItem('anahtar') as HTMLInputElement
+    const kutu = form.elements.namedItem('paylasimKatil') as HTMLInputElement | null
+    const katil = !!kutu?.checked
     const deger = alan.value.trim()
     setDurum({ ...durum, bekliyor: true, hata: undefined })
     // Kaydetmeden ÖNCE doğrula: geçersiz anahtar kaydedilirse kullanıcı her ilanda
@@ -35,6 +39,18 @@ function Form({ durum, setDurum }: { durum: Extract<Durum, { ad: 'yok' }>; setDu
     const s = await anahtarDogrula(deger)
     if (!s.ok) { setDurum({ ...durum, bekliyor: false, hata: s.hata }); return }
     await anahtarKaydet(deger)
+
+    // İZİN EN SONA. permissions.request() diyaloğu action popup'ını kapatıyor ve
+    // ondan sonraki satırlar hiç çalışmıyor. Sıra ters olsaydı kullanıcı anahtarını
+    // girer, "Kaydet"e basar, popup kapanır ve anahtar KAYDEDİLMEMİŞ olurdu —
+    // paylaşım kazanayım derken uzantının asıl işi bozulurdu.
+    if (katil) {
+      await paylasimIstekYaz()
+      // Doğrulama bir ağ isteği; dönene kadar tıklamanın jest hakkı düşmüş olabilir
+      // ve tarayıcı isteği reddeder. Yutuyoruz: niyet kayıtlı olduğu için alttaki
+      // paylaşım bölümü tek tıklık "izni tamamla" adımını gösterecek.
+      try { await paylasimAc() } catch { /* jest süresi doldu; kayıp yok */ }
+    }
     setDurum({ ad: 'var', anahtar: deger })
   }
 
@@ -48,6 +64,22 @@ function Form({ durum, setDurum }: { durum: Extract<Durum, { ad: 'yok' }>; setDu
       <label class="etiket" for="anahtar">Gemini API anahtarı</label>
       <input class="giris" id="anahtar" name="anahtar" type="password" autocomplete="off"
         spellcheck={false} placeholder="AIza…" required />
+
+      {/* Kutu ÖNCEDEN İŞARETLİ: paylaşılan önbellek yalnız yeterli katılım olursa
+          işe yarıyor ve popup'ın dibindeki bir anahtarı kimse görmüyor. Ama gizli
+          değil — metin iki yönü de söylüyor ve tek tıkla kaldırılıyor. Üstelik
+          tarayıcının kendi izin diyaloğu ikinci bir onay olarak duruyor: bu kutu
+          işaretli kalsa bile kullanıcı orada hayır derse hiçbir istek çıkmaz. */}
+      {PAYLASIM_KOK && (
+        <label class="onaySatir" for="paylasimKatil">
+          <input type="checkbox" id="paylasimKatil" name="paylasimKatil" checked />
+          <span>
+            <b>Paylaşılan önbelleğe katıl.</b> Aynı ilanı senden önce analiz eden
+            birinin sonucunu anında görürsün, kendi anahtarın harcanmaz. Karşılığında
+            senin analizlerinin metni de paylaşılır. Anahtarın paylaşılmaz.
+          </span>
+        </label>
+      )}
 
       {durum.hata && <div class="hataKutu" role="alert">{ANAHTAR_HATA[durum.hata] ?? 'Bir sorun oluştu.'}</div>}
 

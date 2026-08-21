@@ -1,21 +1,34 @@
 import {
   AnalysisResultSchema, geminiClient, analyzeListing, maskeleIlan,
   fiyatIstatistik, pazarlikTabani, clampPazarlik, kmDurumu, listeSkoru,
-  AiKrediHatasi, AiHizLimitiHatasi
+  AiKrediHatasi, AiHizLimitiHatasi,
+  onbellekAnahtari, istatistikDilimi, paylasimaHazirla, birlestir
 } from 'shared'
 import type { IstekMesaj, CevapMesaj } from './mesaj'
 import { anahtarGetir, VARSAYILAN_MODEL } from './anahtar'
+import { paylasimAyari, paylasimIstemcisi, type PaylasimIstemci } from './paylasim'
 import { tarayici } from './tarayici'
 
-// ANALİZ ARTIK TAMAMEN TARAYICIDA. Sunucumuz analiz akışında yok:
+// ANALİZ TAMAMEN TARAYICIDA ÜRETİLİR. Sunucu üretim akışında yok:
 //   · kullanıcının API anahtarı buradan çıkmıyor, Google'a doğrudan gidiyor
-//   · ilan içeriği bizim hiçbir sistemimize uğramıyor
+//   · ilan içeriği, adresi ve satıcının açıklaması hiçbir sistemimize uğramıyor
 //   · kota, hesap, ödeme yok — uzantı ücretsiz
 // Anahtar YALNIZ service worker'da okunuyor; content script'e hiç geçmiyor, yani
 // ilan sayfasındaki kod ele geçse bile anahtara ulaşamaz.
+//
+// PAYLAŞILAN ÖNBELLEK (varsayılan KAPALI, bkz. paylasim.ts) bunu değiştirmez:
+// vekil değil, yan yol. Önbellekte kayıt varsa Gemini'ye hiç gidilmez; yoksa istek
+// yine DOĞRUDAN kullanıcının anahtarıyla Google'a gider ve sonucun yalnız metin
+// kısmı sunucuya bırakılır. Sunucu hiçbir koşulda araya girmez.
 
 export async function handleMesaj(
-  msg: IstekMesaj, fetcher: typeof fetch = fetch
+  msg: IstekMesaj, fetcher: typeof fetch = fetch,
+  // Paylaşılan önbellek istemcisi ya da null. Varsayılan: tercih + izin + derlenmiş
+  // adres üçü de varsa kurulur, yoksa null. Testler buraya sahte istemci geçiriyor.
+  paylasimKur: () => Promise<PaylasimIstemci | null> = async () => {
+    const ayar = await paylasimAyari()
+    return ayar ? paylasimIstemcisi(ayar, fetcher) : null
+  }
 ): Promise<CevapMesaj> {
   if (msg.tip === 'popupAc') {
     // Chrome 127+ ; desteklenmediğinde sessizce geç, panel zaten ipucu metni gösteriyor
@@ -30,17 +43,54 @@ export async function handleMesaj(
     return { ok: true, veri: { sonuclar: satirlar.map(s => listeSkoru(s, sayfaFiyatlari)) } }
   }
 
+  // Anahtar paylaşılan önbellek isabetinde de ARANIR. Katılım karşılıklı: kendi
+  // anahtarıyla üretip paylaşmayan biri başkalarının ürettiğini de görmemeli, yoksa
+  // herkesin beklediği ve kimsenin doldurmadığı bir önbellek olur.
   const anahtar = await anahtarGetir()
   if (!anahtar) return { ok: false, hata: 'anahtarYok' }
 
   const { ilan, benzerFiyatlar } = msg.istek
-  // Maske çağrıdan ÖNCE: telefon/IBAN/TCKN/plaka Google'a gitmesin. Sunucu yokken de
-  // vazgeçilmez — ilan sahibinin kişisel verisi ilanı okuyan kullanıcının değil.
+  // Maske çağrıdan ÖNCE: telefon/IBAN/TCKN/plaka Google'a gitmesin. Paylaşılan
+  // önbellek için ayrıca kritik — maskelenmemiş metin başka kullanıcılara dağılırdı.
+  // İlan sahibinin kişisel verisi ilanı okuyan kullanıcının değil.
   maskeleIlan(ilan)
 
   const ist = ilan.fiyat ? fiyatIstatistik(benzerFiyatlar, ilan.fiyat.tutar) : null
   const taban = ist && ilan.fiyat ? pazarlikTabani(ilan.fiyat.tutar, ist.medyan) : null
   const km = kmDurumu(ilan.km, ilan.yil, ilan.kategori, ilan.yakit, new Date().getFullYear())
+
+  // Paylaşılan önbellek yolu. Ayar yoksa (tercih kapalı, izin yok ya da adres
+  // derlenmemiş) bu blok hiç çalışmaz ve akış bugünküyle birebir aynı kalır.
+  const istemci = ilan.fiyat ? await paylasimKur() : null
+  const onbellekAnahtar = istemci && ilan.fiyat
+    ? await onbellekAnahtari({
+      site: msg.istek.siteAd ?? 'bilinmeyen',
+      ilanId: ilan.ilanId,
+      fiyat: ilan.fiyat.tutar,
+      model: VARSAYILAN_MODEL,
+      // Fiyat yorumu yazanın örneklemine dayanıyor. İstatistik durumu anahtarın
+      // parçası olmasaydı, örneklemi olmayan kullanıcıya "medyanın altında" diyen
+      // bir metin servis edilir, üstündeki fiyat kutusu ise boş kalırdı.
+      istDilim: istatistikDilimi(ist)
+    })
+    : null
+
+  // zorla: okuma ATLANIR ama anahtar üretilmeye devam eder — sonuç yine paylaşıma
+  // yazılacak ve sunucu mevcut kayıtla karşılaştırıp itiraz sayacak.
+  if (istemci && onbellekAnahtar && !msg.istek.zorla) {
+    const kayit = await istemci.oku(onbellekAnahtar)
+    if (kayit) {
+      // SAYILAR ÖNBELLEKTEN GELMEZ. Fiyat istatistiği, km durumu ve pazarlık hedefi
+      // burada, bu cihazda yeniden hesaplanıyor — kötü niyetli bir kayıt en fazla
+      // yorum cümlelerini kirletebilir, rakamlara ulaşamaz.
+      const sonuc = AnalysisResultSchema.parse(birlestir(kayit.analiz, {
+        fiyatIstatistik: ist,
+        kmDurum: km,
+        pazarlikHedefi: taban ? Math.round(clampPazarlik(null, taban)) : null
+      }))
+      return { ok: true, veri: sonuc, kaynak: 'paylasilan', paylasimTs: kayit.ts }
+    }
+  }
 
   try {
     const analiz = await analyzeListing(
@@ -57,7 +107,18 @@ export async function handleMesaj(
       // tarayıcıda üretilebilir. Uydurma liste göstermektense boş bırakmak doğrusu.
       kronikSorunlar: []
     })
-    return { ok: true, veri: sonuc }
+    // Paylaşım: yalnız metin kısmı gider (paylasimaHazirla alanları tek tek seçiyor).
+    // Bekliyoruz, ateşle-unut yapmıyoruz: MV3 service worker'ı mesaj işleyicisi
+    // çözülür çözülmez sonlandırabiliyor ve serbest bırakılan istek yolda kesilirdi.
+    const paylasimDurum = istemci && onbellekAnahtar
+      ? await istemci.yaz(onbellekAnahtar, paylasimaHazirla(sonuc))
+      : null
+    // Durum YALNIZ açık yenilemede taşınıyor: ilk analizde "yazildi" bilgisi
+    // kullanıcının ilgilenmediği bir iç ayrıntı, panelde gürültü olur.
+    return {
+      ok: true, veri: sonuc, kaynak: 'kendi',
+      ...(msg.istek.zorla && paylasimDurum ? { paylasimDurum } : {})
+    }
   } catch (e) {
     // Kullanıcı kendi anahtarını kullanıyor: "kredi bitti" ile "kota doldu" ile
     // "anahtar geçersiz" onun için ÜÇ AYRI eylem demek. Tek hataya indirmek,

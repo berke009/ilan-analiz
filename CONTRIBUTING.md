@@ -17,6 +17,27 @@ kabul edilmez.
 Aynı şey fixture'lar için de geçerli: sayfa **yapısını** göstermek serbest, sayfa
 **içeriğini** depoya taşımak değil.
 
+## İkinci değişmez: sunucu analiz akışına girmez
+
+Sunucumuz model çağırmaz, API anahtarı görmez ve ilan içeriği almaz. İsteğe bağlı
+[paylaşılan önbellek](docs/paylasilan-onbellek.md) bunu değiştirmiyor: vekil değil, yan
+yol — önbellekte kayıt yoksa istek yine doğrudan kullanıcının kendi anahtarıyla Google'a
+gider. Sunucuyu araya sokan bir PR kabul edilmez.
+
+O katmana dokunuyorsanız iki kuralı bozmayın:
+
+- **Sayı paylaşılmaz.** Fiyat istatistiği, km durumu ve pazarlık hedefi okuyanın kendi
+  cihazında hesaplanır. `paylasimaHazirla` alanları tek tek sayıyor; yayma (spread)
+  kullanmak, şemaya sonradan eklenen bir alanın habersizce paylaşıma sızması demek.
+- **Varsayılan kapalı.** `PAYLASIM_ACIK` verilmeden sunucuda uçlar kurulmaz,
+  `PAYLASIM_KOK` verilmeden uzantıda özellik hiç bulunmaz. Bu üç testle bağlı:
+  `backend/test/onbellek.test.ts` → "paylaşım kapalıyken sunucu bugünküyle aynı",
+  `extension/test/paylasim.test.ts` → "üç katmanlı kapalılık",
+  `extension/test/sw.test.ts` → "KAPALIYKEN sunucumuza hiç istek gitmez".
+  Adres verilerek derlenen pakette kurulum ekranındaki onay kutusu önceden işaretli
+  gelir; bu bir istisna değil, o üç katmanın en üstündeki kullanıcı tercihi. Kutuyu
+  kaldırmak da tarayıcının izin penceresinde hayır demek de tek başına yeterli.
+
 ## Yeni site adaptörü
 
 `extension/src/siteler/arabam.ts` örnek alınacak dosya. (`sahibinden.ts`'e bakmayın —

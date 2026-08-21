@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "İlan Analiz — İkinci El Araç Asistanı",
-  "version": "0.6.0",
+  "version": "0.7.1",
   "description": "İkinci el araç ilanlarında kilometre, hasar kaydı ve fiyat konumunu değerlendirir. Ücretsiz, üyeliksiz.",
   "icons": {
     "16": "icons/icon16.png",
@@ -16,6 +16,7 @@
     "https://www.sahibinden.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
+  "optional_host_permissions": [],
   "background": {
     "service_worker": "sw.js",
     "type": "module"

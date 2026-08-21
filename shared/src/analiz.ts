@@ -242,6 +242,13 @@ KURALLAR:
 - Açıklama tramer/hasar bilgisi İÇERMİYORSA sarı bayrak ekle: "Tramer bilgisi belirtilmemiş — satıcıya sorun".
 - Açıklamadaki iddiaları ilan alanlarıyla karşılaştır; çelişki varsa kırmızı bayrak.
 - kmDurum etiketi 'cok-dusuk' ise mutlaka bir kırmızı bayrak ekle: km düşürme şüphesi, ekspertiz önerisi.
+- kmDurum etiketi 'sifir-ayarinda' ise kilometreyi ŞÜPHELİ SAYMA ve "yaşına göre az kullanılmış"
+  deme. İkinci el araç ticaretindeki 6 ay / 6.000 km eşiği yüzünden araçlar bu eşiğin hemen
+  üstünde ilana giriyor; 6.001 km bir kullanım verisi değil, aracın satılabilir hâle geldiği
+  noktadır. Bu ilan pratikte SIFIR AYARINDA bir araçtır ve alıcının sorması gerekenler
+  farklıdır: neden bu kadar erken satılıyor, satıcı galeri mi, garanti ve ilk sahiplik
+  devrediyor mu, sıfır fiyatına göre fark gerçekten kazanç mı. Kilometreyi ne artı ne eksi
+  olarak sayma; değerlendirmeyi bu sorular üzerinden kur.
 - durumEtiketi tek kelime/kısa: "İyi Fırsat", "Makul", "Dikkatli Ol", "Riskli".
 - chipler: yakıt/vites/yıl/km/özel durumlar, en fazla 8.
 - ozet: 2-3 cümle, alıcı gözünden.

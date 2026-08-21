@@ -9,3 +9,6 @@ export * from './pii'
 export * from './ilanTarihi'
 export * from './analiz'
 export * from './gemini'
+// Paylaşılan önbellek sözleşmesi: anahtar türetme ve kayıt şeması. Uzantı ile
+// sunucunun aynı dosyaya bakması ZORUNLU — ayrışırsa anahtarlar hiç tutmaz.
+export * from './onbellek'

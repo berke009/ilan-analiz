@@ -1,5 +1,6 @@
 import { render } from 'preact'
 import { Anahtar } from './ui/Anahtar'
+import { Paylasim } from './ui/Paylasim'
 import { RENKLER } from './ui/stil'
 
 // Popup kendi belgesi; shadow DOM'a gerek yok, stil kimseyle çakışmıyor.
@@ -38,6 +39,13 @@ body { margin: 0; width: 320px; background: var(--zemin); color: var(--metin);
 .ikinciDugme:hover { color: var(--metin); border-color: var(--metin2) }
 .anaDugme:focus-visible, .ikinciDugme:focus-visible { outline: 1px solid var(--metin2); outline-offset: 2px }
 
+.onaySatir { display: flex; gap: 8px; align-items: flex-start; margin-top: 14px; padding: 10px 11px;
+  background: var(--yuzey); border: 1px solid var(--kenar); border-radius: 5px;
+  font: 400 11.5px/1.5 var(--sans); color: var(--metin2); cursor: pointer }
+.onaySatir input { flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--yesil); cursor: pointer }
+.onaySatir b { color: var(--metin); font-weight: 600 }
+.onaySatir:hover { border-color: var(--metin3) }
+
 .hataKutu { margin-top: 12px; padding: 8px 10px; border-left: 2px solid var(--kirmizi);
   background: var(--kirmizi-zemin); color: var(--metin); font: 400 12px/1.45 var(--sans) }
 .ipucu { margin: 10px 0 0; color: var(--metin3); font: 400 11.5px/1.5 var(--sans) }
@@ -63,6 +71,17 @@ body { margin: 0; width: 320px; background: var(--zemin); color: var(--metin);
 .kart { display: block }
 .bilgi { margin-top: 14px; padding: 9px 11px; background: var(--yuzey); border-left: 2px solid var(--yesil);
   border-radius: 0 4px 4px 0; font: 400 12px/1.5 var(--sans); color: var(--metin2) }
+
+.paylasimBolum { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--kenar) }
+.paylasimBaslik { font: 600 13px/1.3 var(--sans) }
+.paylasimDetay { margin-top: 10px }
+.paylasimListe { margin-top: 10px }
+.paylasimListeBas { font: 700 9.5px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--metin3); margin-bottom: 6px }
+.paylasimListeBas.arti { color: var(--yesil) }
+.paylasimListeBas.eksi { color: var(--metin2) }
+.madde { display: flex; gap: 7px; font: 400 11.5px/1.5 var(--sans); color: var(--metin2); margin-bottom: 4px }
+.isaretci { flex: 0 0 auto; color: var(--metin3); font: 600 11.5px/1.5 var(--mono) }
 `
 
 const stil = document.createElement('style')
@@ -70,4 +89,4 @@ stil.textContent = STIL
 document.head.appendChild(stil)
 
 const kok = document.getElementById('kok')!
-render(<><div class="baslik">İlan Analiz</div><Anahtar /></>, kok)
+render(<><div class="baslik">İlan Analiz</div><Anahtar /><Paylasim /></>, kok)

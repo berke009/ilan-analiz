@@ -2,14 +2,20 @@
 //
 // Metin uzantının GERÇEKTE yaptığını anlatır. Mağaza incelemesi listelemedeki veri
 // beyanlarıyla bu sayfayı ve manifest izinlerini karşılaştırıyor; üçü tutmazsa reddediliyor.
-// Artık anlatılacak şey kısa: sunucu yok, hesap yok, toplanan veri yok.
+//
+// Anlatılacak İKİ durum var ve karıştırılmamalı:
+//   · VARSAYILAN: hesap yok, sunucuya giden veri yok, çerez yok.
+//   · Kullanıcı paylaşılan önbelleğe AÇIKÇA katılırsa: ürettiği analizin METNİ
+//     sunucuda 24 saat tutulur ve aynı ilanı açan başkalarına gösterilir.
+// İkincisini "toplanan veri yok" cümlesinin altına saklamak, tam olarak mağaza
+// incelemesinin ve KVKK'nın yanlış bulduğu şey olurdu. Ayrı başlık altında yazılı.
 
 const ILETISIM = process.env.ILETISIM_EPOSTA ?? 'destek@example.com'
 // Gizlilik politikasında veri sorumlusunun kim olduğu açıkça yazmalı: mağaza incelemesi
 // de, kullanıcı da "bu veriyi kim işliyor" sorusunun cevabını burada arıyor.
 const SIRKET = process.env.SIRKET_ADI ?? 'Paff Studios'
 const SIRKET_YER = process.env.SIRKET_YER ?? 'Delaware, ABD'
-const GUNCELLEME = '18 Ağustos 2026'
+const GUNCELLEME = '21 Ağustos 2026'
 
 export const GIZLILIK_HTML = `<!doctype html>
 <html lang="tr"><head><meta charset="utf-8">
@@ -43,11 +49,15 @@ a { color:var(--vurgu) }
 <h1>Gizlilik Politikası</h1>
 <p class="alt">İlan Analiz (tarayıcı uzantısı) · ${SIRKET} · Son güncelleme: ${GUNCELLEME}</p>
 
-<div class="kutu"><p><strong>Uzantı bize hiçbir veri göndermez.</strong> Analiz sizin
-tarayıcınızda, sizin kendi yapay zekâ anahtarınızla üretilir. İlan bilgileri bize hiç
-ulaşmaz; bizim saklayacağımız bir veri yoktur. Hesap açmanız da gerekmez. (Şu an
-okuduğunuz bu sayfa bizim sunucumuzdan gelir; uzantının kendisi o sunucuya hiç
-bağlanmaz.)</p></div>
+<div class="kutu"><p><strong>Varsayılan kurulumda uzantı bize hiçbir veri göndermez.</strong>
+Analiz sizin tarayıcınızda, sizin kendi yapay zekâ anahtarınızla üretilir; ilan bilgileri
+bize ulaşmaz, hesap açmanız gerekmez, çerez kullanılmaz.</p>
+<p style="margin-top:10px">Tek istisna, <a href="#paylasim">paylaşılan önbelleğe</a>
+kendi isteğinizle katılmanızdır. Katılırsanız ürettiğiniz analizin <strong>metni</strong>
+24 saatliğine sunucumuzda tutulur ve aynı ilanı açan diğer katılımcılara gösterilir.
+Bu özellik <strong>kapalı gelir</strong>; açmak için hem uzantı penceresinden onaylamanız
+hem de tarayıcının izin sorusuna evet demeniz gerekir. API anahtarınız bu durumda da
+bize gelmez.</p></div>
 
 <h2>Veri sorumlusu</h2>
 <p>Uzantıyı geliştiren taraf <strong>${SIRKET}</strong> (${SIRKET_YER}).
@@ -61,9 +71,41 @@ kilometrenin yaşa göre konumu, benzer ilanlara göre fiyat konumu ve ilanın a
 özeti.</p>
 
 <h2>Topladığımız veri</h2>
-<p><strong>Hiçbiri.</strong> Bizim sunucumuza giden veri yok, bizde hesabınız yok, çerez
-kullanmıyoruz, kullanım istatistiği toplamıyoruz. Uzantı yalnız sizin açtığınız ilan
-sayfasını okur ve sonucu aynı sayfada gösterir.</p>
+<p><strong>Paylaşılan önbelleğe katılmadıysanız: hiçbiri.</strong> Sunucumuza giden veri
+yok, bizde hesabınız yok, çerez kullanmıyoruz, kullanım istatistiği toplamıyoruz. Uzantı
+yalnız sizin açtığınız ilan sayfasını okur ve sonucu aynı sayfada gösterir.</p>
+<p>Katıldıysanız aşağıdaki bölümde tek tek yazılı olan analiz metni sunucumuza gelir.
+Bu durumda da kimliğinizi, anahtarınızı ve hangi ilana baktığınızın adresini almayız.</p>
+
+<h2 id="paylasim">Paylaşılan önbellek (isteğe bağlı, kurulumda sorulur)</h2>
+<p>Aynı ilanı birden çok kişi analiz ettiğinde herkesin kendi yapay zekâ kotasını aynı iş
+için harcaması gereksiz. Katılmayı seçen kullanıcılar arasında analiz <strong>metni</strong>
+paylaşılır: sizden önce birinin ürettiği sonucu görürsünüz, sizin ürettiğiniz de aynı ilanı
+açanlara gösterilir. Karşılıklıdır — katılmayan ne görür ne verir.</p>
+<p>Katılım <strong>API anahtarınızı kaydettiğiniz ekranda</strong> sorulur ve kutu
+<strong>önceden işaretli gelir</strong>. Bunu gizlemiyoruz: önbellek ancak yeterli
+katılım olursa işe yarıyor. Kutuyu tek tıkla kaldırabilirsiniz; kaldırmasanız bile
+tarayıcının kendi izin penceresi ikinci bir onay olarak çıkar ve orada
+<em>izin verme</em> derseniz bu sunucuya <strong>hiçbir istek gitmez</strong>.
+Sonradan fikir değiştirmek için uzantı penceresindeki düğme yeterlidir.</p>
+<table>
+<tr><th>Sunucuya giden</th><th>Sunucuya GİTMEYEN</th></tr>
+<tr><td>Analiz metni: skor, durum etiketi, özet, artı/eksi maddeleri, uyarı cümleleri</td>
+    <td>Yapay zekâ API anahtarınız</td></tr>
+<tr><td>İlan numarası ve fiyattan üretilen, geri çevrilemez bir özet (SHA-256).
+        Sunucu bu özetten hangi ilan olduğunu çözemez.</td>
+    <td>İlanın adresi, başlığı ve satıcının yazdığı açıklama</td></tr>
+<tr><td>Hız sınırı uygulamak için rastgele üretilmiş bir istemci numarası. Kimliğinize
+        bağlı değildir, katılımdan çıkınca silinir.</td>
+    <td>Adınız, e-postanız, hesap bilgisi, çerez, kullanım istatistiği</td></tr>
+</table>
+<p>Paylaşılan kayıtlar <strong>24 saat sonra otomatik silinir</strong>. Fiyat konumu,
+kilometre değerlendirmesi ve pazarlık hedefi paylaşılan metinden gelmez; bu sayılar her
+zaman sizin kendi verinizle, sizin cihazınızda hesaplanır. Panelde, gördüğünüz
+değerlendirmenin başkasının anahtarıyla üretildiği açıkça yazar.</p>
+<p>Katılımdan çıkmak için uzantı penceresindeki <em>Paylaşımdan çık</em> düğmesi yeterlidir:
+tarayıcı izni geri alınır ve istemci numaranız silinir. O ana kadar paylaşılmış kayıtlar
+kime ait olduğu bilinmediği için tek tek geri çağrılamaz; 24 saat içinde kendiliğinden düşer.</p>
 
 <h2>Tarayıcınızda saklananlar</h2>
 <table>
@@ -93,9 +135,14 @@ gibi bir işaret konur). Bu, ilan sahibinin kişisel verisini korumak içindir.<
 Yapay zekâ kullanımının bedeli varsa doğrudan sizin kendi sağlayıcı hesabınızdan işler.</p>
 
 <h2>Haklarınız</h2>
-<p>Bizde veriniz olmadığı için silinecek bir kaydımız da yok. Tarayıcınızda saklananları
-uzantıyı kaldırarak veya uzantı penceresinden anahtarı silerek istediğiniz an
-temizleyebilirsiniz. Soru için ${ILETISIM}.</p>
+<p>Paylaşılan önbelleğe katılmadıysanız bizde hiçbir veriniz yoktur; silinecek bir kaydımız
+da yoktur. Tarayıcınızda saklananları uzantıyı kaldırarak veya uzantı penceresinden anahtarı
+silerek istediğiniz an temizleyebilirsiniz.</p>
+<p>Katıldıysanız sunucudaki kayıtlar kimliğinize bağlı değildir — sizinle
+ilişkilendirilebilir bir kullanıcı kaydı tutmadığımız için belirli bir kaydı size ait diye
+bulup silmemiz teknik olarak mümkün değildir. Bu yüzden saklama süresini kısa tuttuk:
+her kayıt 24 saat sonra otomatik silinir. Paylaşımdan çıktığınızda o andan sonra hiçbir
+şey gönderilmez. Soru ve talepleriniz için ${ILETISIM}.</p>
 
 <h2>Değişiklikler</h2>
 <p>Uygulamalar değişirse bu sayfa güncellenir ve değişiklik uzantı panelinde duyurulur.</p>
