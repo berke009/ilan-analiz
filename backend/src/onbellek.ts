@@ -106,10 +106,22 @@ export function onbellekRotalari(depo: Depo, ayar: Ayar): Hono {
     return /^(?:chrome-extension|moz-extension|safari-web-extension):\/\//.test(origin)
   }
 
+  // Anahtar loga DÜŞMEZ: 64 hex karakter ve ilan numarasının türevi. Depoda
+  // tutmadığımız bir şeyi loga yazmak tutarsız olurdu.
+  const yolMaskele = (yol: string) => yol.replace(/\/onbellek\/[0-9a-f]{64}$/, '/onbellek/:anahtar')
+
   app.use('*', async (c, next) => {
     const origin = c.req.header('origin')
-    if (!originUygun(origin)) return c.json({ hata: 'kaynak' }, 403)
+    if (!originUygun(origin)) {
+      console.log(`[UC] ${c.req.method} ${yolMaskele(c.req.path)} 403 kaynak=${origin}`)
+      return c.json({ hata: 'kaynak' }, 403)
+    }
     await next()
+    // İSTEK LOGU: yöntem, yol, durum. İÇERİK YOK, ANAHTAR YOK, IP YOK — teşhis için
+    // gereken tek şey "istek geldi mi, ne döndü". Bu satır olmadan "uzantı istek
+    // atıyor mu yoksa hiç mi çıkmıyor" sorusu sunucudan cevaplanamıyor ve teşhis
+    // tamamen tarayıcı konsoluna bağlı kalıyor (yaşandı).
+    console.log(`[UC] ${c.req.method} ${yolMaskele(c.req.path)} ${c.res.status}`)
     if (origin) {
       c.header('Access-Control-Allow-Origin', origin)
       c.header('Vary', 'Origin')
