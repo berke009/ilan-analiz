@@ -184,9 +184,14 @@ Kenarda ayrıca yapılması önerilenler:
 - **Cache rule**: `GET /v1/onbellek/*` için "Cache Everything" + "Respect origin TTL".
   Kayıtlar TTL boyunca değişmediği (ilk yazan kazanır) için bu güvenli ve okuma yükünü
   sunucudan tamamen alır. Uygulama isabet yanıtına
-  `public, max-age=300, s-maxage=3600, stale-while-revalidate=600, stale-if-error=86400`
+  `public, max-age=300, s-maxage=300, stale-while-revalidate=600, stale-if-error=86400`
   yazıyor; sonuncusu sayesinde sunucu ya da tünel düştüğünde bile kenardaki kopya
   servis edilmeye devam eder.
+
+  `s-maxage` bilerek KISA (5 dk) ve sebebi doğrudan itiraz mekanizması: kayıt
+  değiştirilemez ama silinebilir. Kenarda bir saatlik bir kopya dururken iki itiraz
+  alıp silinen kayıt, bir saat daha servis edilmeye devam ederdi — zehir temizliği
+  çalışmamış olurdu. Yani **bir itirazla silme kenara en geç 5 dakikada yansır.**
 - **WAF**: `/v1/*` dışındaki yolları ve `GET`/`POST`/`OPTIONS` dışındaki metotları kes.
 
 ### Worker gerekir mi?

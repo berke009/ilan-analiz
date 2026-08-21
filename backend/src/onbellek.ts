@@ -146,16 +146,25 @@ export function onbellekRotalari(depo: Depo, ayar: Ayar): Hono {
       c.header('Cache-Control', 'no-store')
       return c.json({ hata: 'yok' }, 404)
     }
-    // Kayıt TTL boyunca DEĞİŞMEZ (ilk yazan kazanır), yani kenar önbelleği güvenli.
+    // Kayıt ilk yazan kazanır kuralıyla DEĞİŞMEZ, yani kenar önbelleği güvenli.
     // Cloudflare bu yanıtı tutunca okuma yükü bizim sunucumuza hiç gelmiyor ve
     // ayrı bir Worker yazmaya gerek kalmıyor — tek bir Cache Rule yetiyor.
     //
-    // stale-if-error KRİTİK: kayıt zaten değişmez olduğu için, sunucu ya da tünel
-    // düştüğünde bayat kopyayı servis etmek DOĞRU davranış. Bu direktif olmadan
-    // origin arızası, elde geçerli veri dururken kullanıcıya isabetsizlik olarak
-    // dönerdi ve herkes kotasını yeniden harcardı.
+    // s-maxage KISA (5 dk) ve sebebi doğrudan itiraz mekanizması: kayıt değiştirilemez
+    // ama SİLİNEBİLİR. İki itiraz biriken kaydı sunucu Valkey'den kaldırıyor; kenarda
+    // uzun ömürlü bir kopya duruyorsa o kayıt silinmiş olmasına rağmen servis edilmeye
+    // devam eder ve zehir temizliği çalışmamış olur. Bir saatlik s-maxage bu pencereyi
+    // bir saate çıkarıyordu. Beş dakika, 24 saatlik TTL'in yanında ihmal edilebilir bir
+    // gecikme; buna karşılık kenar yükü zaten tekrarlı okumaların ezici kısmını yutuyor.
+    //
+    // stale-if-error uzun kalıyor ve bu bilinçli: kayıt değişmez, sunucu ya da tünel
+    // düştüğünde bayat kopyayı servis etmek DOĞRU davranış. Bu direktif olmadan origin
+    // arızası, elde geçerli veri dururken kullanıcıya isabetsizlik olarak döner ve
+    // herkes kotasını yeniden harcardı. Silinmiş bir kaydın origin arızası SIRASINDA
+    // servis edilmeye devam etmesi ihtimali kabul ediliyor: dar bir kesişim, ve
+    // alternatifi olan "arıza anında herkesi kotasına geri gönder" daha pahalı.
     c.header('Cache-Control',
-      `public, max-age=300, s-maxage=${Math.min(3600, ayar.ttlSn)}` +
+      `public, max-age=300, s-maxage=${Math.min(300, ayar.ttlSn)}` +
       `, stale-while-revalidate=600, stale-if-error=${ayar.ttlSn}`)
     return c.body(ham, 200, { 'content-type': 'application/json; charset=utf-8' })
   })

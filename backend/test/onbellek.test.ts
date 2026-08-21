@@ -108,10 +108,17 @@ describe('yaz-oku turu', () => {
     expect(o.headers.get('cache-control')).toContain('no-store')
   })
 
-  it('isabet kenarda önbelleklenebilir — kayıt TTL boyunca değişmez', async () => {
+  it('isabet kenarda önbelleklenebilir ama KISA süreyle — itiraz silmesi tutsun', async () => {
+    // Kayıt değiştirilemez ama SİLİNEBİLİR (itiraz). Kenarda uzun ömürlü bir kopya
+    // dururken silinen kayıt servis edilmeye devam ederdi ve zehir temizliği
+    // çalışmamış olurdu. s-maxage bu pencereyi belirliyor.
     const app = kur()
     await yaz(app, { anahtar: ANAHTAR, analiz: ANALIZ })
-    expect((await app.request(`/v1/onbellek/${ANAHTAR}`)).headers.get('cache-control')).toContain('public')
+    const cc = (await app.request(`/v1/onbellek/${ANAHTAR}`)).headers.get('cache-control')!
+    expect(cc).toContain('public')
+    expect(Number(cc.match(/s-maxage=(\d+)/)![1])).toBeLessThanOrEqual(300)
+    // Origin arızasında bayat kopya servis edilebilsin: kayıt zaten değişmez.
+    expect(cc).toContain('stale-if-error')
   })
 
   it('bozuk anahtar biçimi 400', async () => {
