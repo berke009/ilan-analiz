@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks'
-import type { AnalysisResult, ListRow } from 'shared'
+import type { AnalysisResult, ListRow, PaylasimYazDurum } from 'shared'
 import { skorRenk } from './skor'
 import type { Alternatif } from '../alternatif'
 import { tarayici } from '../tarayici'
@@ -17,6 +17,7 @@ export type PanelDurum =
   | {
     asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]
     benzerler?: ListRow[]; paylasim?: { ts: number }; yenile?: () => void
+    paylasimDurum?: PaylasimYazDurum
   }
 
 const tl = (n: number) => n.toLocaleString('tr-TR')
@@ -68,7 +69,7 @@ export function Panel({ durum, kok = 'https://www.sahibinden.com' }: { durum: Pa
               : <div><button class="tekrar" data-rol="tekrar" onClick={durum.tekrar}>Tekrar dene</button></div>}
           </div>
         )}
-        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} paylasim={durum.paylasim} yenile={durum.yenile} kok={kok} />}
+        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} paylasim={durum.paylasim} yenile={durum.yenile} paylasimDurum={durum.paylasimDurum} kok={kok} />}
       </div>
     </div>
   )
@@ -132,7 +133,20 @@ function PaylasimNotu({ ts, yenile }: { ts: number; yenile?: () => void }) {
   )
 }
 
-function Sonuc({ s, alternatifler, benzerler, paylasim, yenile, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number }; yenile?: () => void; kok: string }) {
+// Yenilemenin paylaşılan kayda NE YAPTIĞI. Göstermezsek düğme sessiz bir hiçlik
+// gibi görünür: kullanıcı kendi sonucunu alır ama paylaşılan kaydın durduğunu mu
+// düştüğünü mü bilmez.
+//
+// "Uyumlu çıktı" hâli KASITLI OLARAK bir başarısızlık gibi sunulmuyor: iki bağımsız
+// analizin aynı yere varması, önbelleğin doğru çalıştığının kanıtı.
+const YENILEME_METNI: Record<PaylasimYazDurum, string> = {
+  yazildi: 'Paylaşılan kayıt yoktu; senin sonucun paylaşıma yazıldı.',
+  vardi: 'Senin sonucun paylaşılan kayıtla uyumlu çıktı — kayıt olduğu gibi kaldı.',
+  itiraz: 'Sonucun paylaşılan kayıttan belirgin şekilde ayrıştı ve bu işaretlendi. Bir kullanıcı daha aynı sonuca varırsa o kayıt paylaşımdan düşer.',
+  itirazlaSilindi: 'Paylaşılan kayıt kaldırıldı — bu ilan artık önbellekten servis edilmeyecek.'
+}
+
+function Sonuc({ s, alternatifler, benzerler, paylasim, yenile, paylasimDurum, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number }; yenile?: () => void; paylasimDurum?: PaylasimYazDurum; kok: string }) {
   const renk = skorRenk(s.skor)
   return (
     <>
@@ -151,6 +165,12 @@ function Sonuc({ s, alternatifler, benzerler, paylasim, yenile, kok }: { s: Anal
       </div>
 
       {paylasim && <PaylasimNotu ts={paylasim.ts} yenile={yenile} />}
+
+      {paylasimDurum && (
+        <div class="bolum paylasimNot" data-rol="yenileme-sonucu">
+          Bu analiz senin kendi anahtarınla üretildi. {YENILEME_METNI[paylasimDurum]}
+        </div>
+      )}
 
       {s.chipler.length > 0 && (
         <div class="bolum" data-rol="chip-bolum">

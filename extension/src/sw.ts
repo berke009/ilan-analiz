@@ -110,8 +110,15 @@ export async function handleMesaj(
     // Paylaşım: yalnız metin kısmı gider (paylasimaHazirla alanları tek tek seçiyor).
     // Bekliyoruz, ateşle-unut yapmıyoruz: MV3 service worker'ı mesaj işleyicisi
     // çözülür çözülmez sonlandırabiliyor ve serbest bırakılan istek yolda kesilirdi.
-    if (istemci && onbellekAnahtar) await istemci.yaz(onbellekAnahtar, paylasimaHazirla(sonuc))
-    return { ok: true, veri: sonuc, kaynak: 'kendi' }
+    const paylasimDurum = istemci && onbellekAnahtar
+      ? await istemci.yaz(onbellekAnahtar, paylasimaHazirla(sonuc))
+      : null
+    // Durum YALNIZ açık yenilemede taşınıyor: ilk analizde "yazildi" bilgisi
+    // kullanıcının ilgilenmediği bir iç ayrıntı, panelde gürültü olur.
+    return {
+      ok: true, veri: sonuc, kaynak: 'kendi',
+      ...(msg.istek.zorla && paylasimDurum ? { paylasimDurum } : {})
+    }
   } catch (e) {
     // Kullanıcı kendi anahtarını kullanıyor: "kredi bitti" ile "kota doldu" ile
     // "anahtar geçersiz" onun için ÜÇ AYRI eylem demek. Tek hataya indirmek,

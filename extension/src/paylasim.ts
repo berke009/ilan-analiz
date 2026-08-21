@@ -1,4 +1,7 @@
-import { PaylasimOkuSchema, type PaylasilanAnaliz, type PaylasimOku } from 'shared'
+import {
+  PaylasimOkuSchema, PaylasimYazSonucSchema,
+  type PaylasilanAnaliz, type PaylasimOku, type PaylasimYazDurum
+} from 'shared'
 import { tarayici } from './tarayici'
 
 // PAYLAŞILAN ÖNBELLEK — uzantı tarafı.
@@ -113,7 +116,9 @@ export async function paylasimKapat(kok = PAYLASIM_KOK): Promise<void> {
 
 export type PaylasimIstemci = {
   oku(anahtar: string): Promise<PaylasimOku | null>
-  yaz(anahtar: string, analiz: PaylasilanAnaliz): Promise<void>
+  // Sunucunun kararını döndürür; ulaşılamazsa null. Panel bunu yalnız kullanıcı
+  // AÇIKÇA yenilediğinde gösteriyor — normal analizde "yazildi" bilgisi gürültü.
+  yaz(anahtar: string, analiz: PaylasilanAnaliz): Promise<PaylasimYazDurum | null>
 }
 
 // Ağ hataları KULLANICIYA YANSIMAZ. Paylaşılan önbellek bir kolaylık katmanı;
@@ -136,13 +141,16 @@ export function paylasimIstemcisi(ayar: PaylasimAyar, fetcher: typeof fetch = fe
     },
     async yaz(anahtar, analiz) {
       try {
-        await fetcher(`${ayar.kok}/v1/onbellek`, {
+        const res = await fetcher(`${ayar.kok}/v1/onbellek`, {
           method: 'POST',
           headers: { ...baslik, 'content-type': 'application/json' },
           body: JSON.stringify({ anahtar, analiz }),
           signal: AbortSignal.timeout(YAZMA_ZAMAN_ASIMI_MS)
         })
-      } catch { /* paylaşamadık; kullanıcının sonucu zaten elinde */ }
+        if (!res.ok) return null // 429 limit, 422 denetim — kullanıcıyı ilgilendirmiyor
+        const cozum = PaylasimYazSonucSchema.safeParse(await res.json())
+        return cozum.success ? cozum.data.durum : null
+      } catch { return null /* paylaşamadık; kullanıcının sonucu zaten elinde */ }
     }
   }
 }

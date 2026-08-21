@@ -50,6 +50,19 @@ export const PaylasimYazSchema = z.object({
 })
 export type PaylasimYaz = z.infer<typeof PaylasimYazSchema>
 
+// Yazmanın sunucudaki karşılığı. İstemci bunu KULLANICIYA GÖSTERMEK için istiyor:
+// "Kendi anahtarımla güncelle" diyen biri, kendi sonucunun paylaşılan kayda ne
+// yaptığını görmezse düğme sessiz bir hiçlik gibi görünür.
+//
+//   yazildi         · kayıt yoktu (süresi dolmuş ya da itirazla düşmüş), yenisi yazıldı
+//   vardi           · mevcut kayıtla uyumlu; kayıt olduğu gibi kaldı
+//   itiraz          · skor belirgin ayrıştı, işaretlendi; bir itiraz daha gerekiyor
+//   itirazlaSilindi · eşik doldu, kayıt paylaşımdan kaldırıldı
+export const PaylasimYazSonucSchema = z.object({
+  durum: z.enum(['yazildi', 'vardi', 'itiraz', 'itirazlaSilindi'])
+})
+export type PaylasimYazDurum = z.infer<typeof PaylasimYazSonucSchema>['durum']
+
 export const PaylasimOkuSchema = z.object({
   analiz: PaylasilanAnalizSchema,
   // Kaydın yazıldığı an (epoch ms). Panel "başka bir kullanıcıdan, N saat önce"

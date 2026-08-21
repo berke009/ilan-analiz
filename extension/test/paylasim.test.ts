@@ -186,7 +186,8 @@ describe('istemci', () => {
   it('ağ hatası kullanıcıya yansımaz', async () => {
     const f: any = async () => { throw new Error('ağ yok') }
     expect(await paylasimIstemcisi(ayar, f).oku(ANAHTAR)).toBeNull()
-    await expect(paylasimIstemcisi(ayar, f).yaz(ANAHTAR, ANALIZ)).resolves.toBeUndefined()
+    // yaz artık sunucunun kararını döndürüyor; ulaşılamadığında karar YOK demek.
+    await expect(paylasimIstemcisi(ayar, f).yaz(ANAHTAR, ANALIZ)).resolves.toBeNull()
   })
 
   it('yazma gövdesi anahtar + analizden ibaret', async () => {
@@ -203,5 +204,32 @@ describe('istemci', () => {
     const f: any = async (_u: string, init: any) => { cagrilar.push(init); return yanit(404, {}) }
     await paylasimIstemcisi(ayar, f).oku(ANAHTAR)
     expect(cagrilar[0].signal).toBeInstanceOf(AbortSignal)
+  })
+})
+
+describe('yazma sunucunun kararını taşır', () => {
+  const ayar = { kok: KOK, kimlik: '11111111-2222-4333-8444-555555555555' }
+  const yanit = (durum: number, govde: unknown) => ({ ok: durum < 400, status: durum, json: async () => govde })
+
+  it('sunucunun durumu döner', async () => {
+    for (const d of ['yazildi', 'vardi', 'itiraz', 'itirazlaSilindi']) {
+      const f: any = async () => yanit(200, { durum: d })
+      expect(await paylasimIstemcisi(ayar, f).yaz(ANAHTAR, ANALIZ)).toBe(d)
+    }
+  })
+
+  it('tanınmayan durum null — panele uydurma metin basılmaz', async () => {
+    const f: any = async () => yanit(200, { durum: 'bilinmeyen' })
+    expect(await paylasimIstemcisi(ayar, f).yaz(ANAHTAR, ANALIZ)).toBeNull()
+  })
+
+  it('limit/denetim reddi null — kullanıcıyı ilgilendirmiyor', async () => {
+    const f: any = async () => yanit(429, { hata: 'limit' })
+    expect(await paylasimIstemcisi(ayar, f).yaz(ANAHTAR, ANALIZ)).toBeNull()
+  })
+
+  it('ağ hatası null, istisna fırlatmaz', async () => {
+    const f: any = async () => { throw new Error('ağ yok') }
+    expect(await paylasimIstemcisi(ayar, f).yaz(ANAHTAR, ANALIZ)).toBeNull()
   })
 })

@@ -1,4 +1,4 @@
-import type { AnalyzeRequest, BatchScoreRequest } from 'shared'
+import type { AnalyzeRequest, BatchScoreRequest, PaylasimYazDurum } from 'shared'
 
 export type IstekMesaj =
   // siteAd paylaşılan önbellek anahtarının parçası: iki farklı sitede aynı ilan
@@ -16,5 +16,10 @@ export type CevapMesaj =
   // paylaşılan önbellekten mi geldi ('paylasilan'). Panel bunu GÖSTERMEK ZORUNDA —
   // başka birinin ürettiği bir değerlendirmeyi kendi analizin gibi sunmak,
   // kullanıcının bilmesi gereken şeyi saklamak olur.
-  | { ok: true; veri: unknown; kaynak?: 'kendi' | 'paylasilan'; paylasimTs?: number }
+  // paylasimDurum: kullanıcı AÇIKÇA yenilediğinde, sonucunun paylaşılan kayda ne
+  // yaptığı. Gösterilmezse "güncelle" düğmesi sessiz bir hiçlik gibi görünür.
+  | {
+    ok: true; veri: unknown; kaynak?: 'kendi' | 'paylasilan'
+    paylasimTs?: number; paylasimDurum?: PaylasimYazDurum
+  }
   | { ok: false; hata: string }

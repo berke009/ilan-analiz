@@ -1,5 +1,5 @@
 import { render } from 'preact'
-import type { AnalysisResult, ListRow } from 'shared'
+import type { AnalysisResult, ListRow, PaylasimYazDurum } from 'shared'
 import { adaptorSec, type SiteAdaptoru } from './siteler'
 import { benzerIlanlarBul, listeDepo } from './similar'
 import { lokalSonucGet, lokalSonucSet } from './lokalCache'
@@ -30,9 +30,9 @@ async function detayAkisi(site: SiteAdaptoru) {
 
   const cizSonuc = (
     sonuc: AnalysisResult, benzer: Awaited<ReturnType<typeof benzerIlanlarBul>>,
-    paylasim?: { ts: number }
+    paylasim?: { ts: number }, paylasimDurum?: PaylasimYazDurum
   ) => ciz({
-    asama: 'hazir', sonuc, benzerler: benzer?.satirlar, paylasim,
+    asama: 'hazir', sonuc, benzerler: benzer?.satirlar, paylasim, paylasimDurum,
     // Yenileme YALNIZ paylaşılan sonuçta anlamlı: kendi ürettiğin analizi aynı
     // anahtarla yeniden üretmek aynı şeyi tekrar satın almak olur.
     yenile: paylasim ? () => calistir(benzer, true) : undefined
@@ -51,7 +51,9 @@ async function detayAkisi(site: SiteAdaptoru) {
     const paylasim = cevap.kaynak === 'paylasilan' && cevap.paylasimTs != null
       ? { ts: cevap.paylasimTs } : undefined
     await lokalSonucSet(ilan.ilanId, ilan.fiyat!.tutar, sonuc, paylasim)
-    cizSonuc(sonuc, benzer, paylasim)
+    // Yerel önbellek TAZE sonuçla üzerine yazılıyor ve paylaşım işareti düşüyor:
+    // yenileme sonrası aynı ilanı tekrar açan kullanıcı kendi analizini görmeli.
+    cizSonuc(sonuc, benzer, paylasim, cevap.paylasimDurum)
   }
   const eldeki = await lokalSonucGet(ilan.ilanId, ilan.fiyat.tutar)
   if (eldeki) {

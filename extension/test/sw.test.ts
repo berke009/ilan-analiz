@@ -148,7 +148,7 @@ describe('paylaşılan önbellek', () => {
     const yazilan: any[] = []
     const istemci = {
       oku: async (a: string) => { istemci.okunan.push(a); return kayit },
-      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }) },
+      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }); return 'yazildi' as const },
       okunan: [] as string[],
       yazilan
     }
@@ -213,6 +213,8 @@ describe('paylaşılan önbellek', () => {
     const c: any = await handleMesaj(istekIst(), fetcher, async () => istemci)
     expect(c.ok).toBe(true)
     expect(c.kaynak).toBe('kendi')
+    // Açık yenileme DEĞİL: paylaşım durumu taşınmaz, panelde gürültü olurdu.
+    expect(c.paylasimDurum).toBeUndefined()
     expect(istemci.yazilan).toHaveLength(1)
     expect(istemci.yazilan[0].anahtar).toBe(istemci.okunan[0]) // okunan ve yazılan anahtar AYNI
     // Sayılar sunucuya gitmiyor: kötü niyetli bir kayıt bunlara hiç sahip olamamalı.
@@ -258,7 +260,7 @@ describe('zorla yenileme', () => {
     const yazilan: any[] = []
     const istemci = {
       oku: async (a: string) => { okunan.push(a); return { analiz: PAYLASILAN, ts: Date.now() } },
-      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }) }
+      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }); return 'vardi' as const }
     }
     const c: any = await handleMesaj(zorlaIstek(), (async () => geminiYanit(JSON.stringify(AI_CEVAP))) as any, async () => istemci)
     expect(c.ok).toBe(true)
@@ -273,10 +275,12 @@ describe('zorla yenileme', () => {
     const yazilan: any[] = []
     const istemci = {
       oku: async () => ({ analiz: PAYLASILAN, ts: Date.now() }),
-      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }) }
+      yaz: async (a: string, analiz: any) => { yazilan.push({ anahtar: a, analiz }); return 'itiraz' as const }
     }
-    await handleMesaj(zorlaIstek(), (async () => geminiYanit(JSON.stringify(AI_CEVAP))) as any, async () => istemci)
+    const c: any = await handleMesaj(zorlaIstek(), (async () => geminiYanit(JSON.stringify(AI_CEVAP))) as any, async () => istemci)
     expect(yazilan).toHaveLength(1)
+    // Sunucunun kararı panele taşınmalı: yenileme sessiz bir hiçlik gibi görünmesin.
+    expect(c.paylasimDurum).toBe('itiraz')
     expect(yazilan[0].anahtar).toMatch(/^[0-9a-f]{64}$/)
     expect(yazilan[0].analiz.skor).toBe(AI_CEVAP.skor)
   })

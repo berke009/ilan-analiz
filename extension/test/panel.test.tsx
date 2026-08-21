@@ -263,3 +263,34 @@ describe('paylaşılan sonucu kendi anahtarıyla güncelleme', () => {
     expect(k.querySelector('[data-rol="yenile"]')).toBeNull()
   })
 })
+
+describe('yenilemenin paylaşılan kayda etkisi', () => {
+  // Göstermezsek "Kendi anahtarımla güncelle" sessiz bir hiçlik gibi görünür:
+  // kullanıcı kendi sonucunu alır ama paylaşılan kaydın durup durmadığını bilmez.
+  const metin = (durum: any) =>
+    cizdir({ asama: 'hazir', sonuc, paylasimDurum: durum })
+      .querySelector('[data-rol="yenileme-sonucu"]')?.textContent ?? ''
+
+  it('uyumlu sonuç BAŞARISIZLIK gibi sunulmaz', () => {
+    // İki bağımsız analizin aynı yere varması, önbelleğin doğru çalıştığının kanıtı.
+    expect(metin('vardi')).toContain('uyumlu')
+    expect(metin('vardi')).not.toMatch(/hata|başarısız|reddedildi/i)
+  })
+
+  it('ayrışma işaretlendiğinde bir sonraki adımı söyler', () => {
+    expect(metin('itiraz')).toContain('ayrıştı')
+    expect(metin('itiraz')).toContain('Bir kullanıcı daha')
+  })
+
+  it('kayıt düştüğünde açıkça söylenir', () => {
+    expect(metin('itirazlaSilindi')).toContain('kaldırıldı')
+  })
+
+  it('kayıt yokken yazıldığı söylenir', () => {
+    expect(metin('yazildi')).toContain('paylaşıma yazıldı')
+  })
+
+  it('normal analizde bu satır YOKTUR — iç ayrıntı panelde gürültü olur', () => {
+    expect(cizdir({ asama: 'hazir', sonuc }).querySelector('[data-rol="yenileme-sonucu"]')).toBeNull()
+  })
+})
