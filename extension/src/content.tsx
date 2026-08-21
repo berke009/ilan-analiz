@@ -28,28 +28,34 @@ async function detayAkisi(site: SiteAdaptoru) {
   const ilan = site.detayOku(document, location.href)
   if (!ilan || !ilan.fiyat) { ciz({ asama: 'okunamadi' }); return }
 
-  const cizSonuc = (sonuc: AnalysisResult, benzer: Awaited<ReturnType<typeof benzerIlanlarBul>>) =>
-    ciz({ asama: 'hazir', sonuc, benzerler: benzer?.satirlar })
+  const cizSonuc = (
+    sonuc: AnalysisResult, benzer: Awaited<ReturnType<typeof benzerIlanlarBul>>,
+    paylasim?: { ts: number }
+  ) => ciz({ asama: 'hazir', sonuc, benzerler: benzer?.satirlar, paylasim })
 
   const calistir = async (hazirBenzer?: Awaited<ReturnType<typeof benzerIlanlarBul>>) => {
     ciz({ asama: 'yukleniyor' })
     const benzer = hazirBenzer !== undefined ? hazirBenzer : await benzerIlanlarBul(ilan, listeDepo(), site.ad)
-    const cevap: CevapMesaj = await tarayici.runtime.sendMessage({ tip: 'analyze', istek: { ilan, benzerFiyatlar: benzer?.fiyatlar ?? [] } })
+    // siteAd paylaşılan önbellek anahtarının parçası: iki sitede aynı ilan numarası
+    // çakışabiliyor ve birinin analizi öbürüne servis edilirdi.
+    const cevap: CevapMesaj = await tarayici.runtime.sendMessage({ tip: 'analyze', istek: { ilan, benzerFiyatlar: benzer?.fiyatlar ?? [], siteAd: site.ad } })
     if (!cevap.ok) { ciz({ asama: 'hata', mesaj: cevap.hata, tekrar: () => calistir() }); return }
     const sonuc = cevap.veri as AnalysisResult
-    await lokalSonucSet(ilan.ilanId, ilan.fiyat!.tutar, sonuc)
-    cizSonuc(sonuc, benzer)
+    const paylasim = cevap.kaynak === 'paylasilan' && cevap.paylasimTs != null
+      ? { ts: cevap.paylasimTs } : undefined
+    await lokalSonucSet(ilan.ilanId, ilan.fiyat!.tutar, sonuc, paylasim)
+    cizSonuc(sonuc, benzer, paylasim)
   }
   const eldeki = await lokalSonucGet(ilan.ilanId, ilan.fiyat.tutar)
   if (eldeki) {
     // AI sonucu cache'ten anında gelsin; karşılaştırma satırları yerel depodan okunur
     // (ağ yok, bedava) — kullanıcı bu arada bir liste sayfası gezmişse artık elde olabilir.
-    cizSonuc(eldeki, null)
+    cizSonuc(eldeki.sonuc, null, eldeki.paylasim)
     const benzer = await benzerIlanlarBul(ilan, listeDepo(), site.ad)
     // Cache'teki sonuç karşılaştırma bulunamadan üretilmişse fiyat konumu ve pazarlık
     // hedefi eksiktir; artık karşılaştırma varken o eksik hâli göstermeye devam etme.
-    if (eldeki.fiyatIstatistik == null && benzer != null) { await calistir(benzer); return }
-    cizSonuc(eldeki, benzer)
+    if (eldeki.sonuc.fiyatIstatistik == null && benzer != null) { await calistir(benzer); return }
+    cizSonuc(eldeki.sonuc, benzer, eldeki.paylasim)
     return
   }
 

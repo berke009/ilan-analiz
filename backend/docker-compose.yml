@@ -1,0 +1,55 @@
+# Paylaşılan önbellek için kendi kendine yeten kurulum: uygulama + Valkey + tünel.
+#
+# DIŞARIYA AÇIK PORT YOK. Cloudflare Tunnel dışa doğru bağlanıyor, gelen bağlantı
+# kabul etmiyor; uygulama yalnız compose ağında görünür. `ports:` eklemek bu kurulumun
+# tek güvenlik varsayımını bozar: IP başlığı (cf-connecting-ip) o zaman istemci
+# tarafından uydurulabilir hâle gelir ve IP hız limiti tamamen anlamsızlaşır.
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command:
+      - valkey-server
+      # Önbellek KALICI DEĞİL: kayıtların hepsi 24 saatlik ve yeniden üretilebilir.
+      # Diske yazmamak hem hızlı hem de sunucuda ilan türevi metin biriktirmemek demek.
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      # Bellek dolduğunda en az kullanılanı at. Bu ayar olmadan Valkey yazmaları
+      # reddetmeye başlar ve önbellek sessizce donar — sonra da hiç güncellenmez.
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - allkeys-lru
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PAYLASIM_ACIK: "1"
+      VALKEY_URL: redis://valkey:6379
+      # Konteyner içinde tünelin ulaşabilmesi için tüm arayüzler dinlenir; konteyner
+      # zaten yalnız compose ağında, host'a hiçbir port yayınlanmıyor.
+      BIND: 0.0.0.0
+      PORT: "3000"
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+  tunel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    # Tünel jetonu Cloudflare panelinden (Zero Trust → Networks → Tunnels) alınır ve
+    # .env'e yazılır. Depoya ASLA girmez.
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - backend

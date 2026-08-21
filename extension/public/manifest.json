@@ -16,6 +16,7 @@
     "https://www.sahibinden.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
+  "optional_host_permissions": [],
   "background": {
     "service_worker": "sw.js",
     "type": "module"

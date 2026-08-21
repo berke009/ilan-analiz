@@ -194,3 +194,29 @@ describe('anahtar kurulum çağrısı', () => {
     expect(k.textContent).toContain('hız sınırına takıldı')
   })
 })
+
+describe('paylaşılan sonuç beyanı', () => {
+  it('paylaşılan önbellekten gelen sonuç AÇIKÇA söylenir', () => {
+    // Başkasının değerlendirmesini kendi analizin gibi göstermek, kullanıcının
+    // bilmesi gereken tek şeyi saklamak olur.
+    const k = cizdir({ asama: 'hazir', sonuc, paylasim: { ts: Date.now() - 3 * 3600_000 } })
+    const not = k.querySelector('[data-rol="paylasim-not"]')!
+    expect(not).not.toBeNull()
+    expect(not.textContent).toContain('paylaşılan önbellekten')
+    expect(not.textContent).toContain('3 saat önce')
+    // Hangi sayıların yine de kendi verisinden geldiğini de söylemeli
+    expect(not.textContent).toContain('kendi verinle')
+  })
+
+  it('kendi anahtarıyla üretilen sonuçta not YOKTUR', () => {
+    expect(cizdir({ asama: 'hazir', sonuc }).querySelector('[data-rol="paylasim-not"]')).toBeNull()
+  })
+
+  it('yaş metni dakika/saat/gün olarak kabalaşır', async () => {
+    const { yasMetni } = await import('../src/ui/Panel')
+    const simdi = 1_700_000_000_000
+    expect(yasMetni(simdi - 5 * 60_000, simdi)).toBe('5 dakika önce')
+    expect(yasMetni(simdi - 4 * 3600_000, simdi)).toBe('4 saat önce')
+    expect(yasMetni(simdi - 30 * 3600_000, simdi)).toBe('1 gün önce')
+  })
+})

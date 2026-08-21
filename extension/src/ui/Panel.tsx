@@ -6,7 +6,11 @@ import { tarayici } from '../tarayici'
 export type PanelDurum =
   | { asama: 'yukleniyor' } | { asama: 'okunamadi' }
   | { asama: 'hata'; mesaj: string; tekrar: () => void }
-  | { asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[] }
+  // paylasim: sonuç başka bir kullanıcının anahtarıyla üretilip paylaşılan
+  // önbellekten geldiyse dolu. Panel bunu SÖYLEMEK ZORUNDA — başkasının
+  // değerlendirmesini kendi analizin gibi göstermek, kullanıcının bilmesi
+  // gereken tek şeyi saklamak olur.
+  | { asama: 'hazir'; sonuc: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number } }
 
 const tl = (n: number) => n.toLocaleString('tr-TR')
 // Site kökü adaptörden gelir; panelin hangi sitede çalıştığını bilmesi gerekmiyor.
@@ -53,7 +57,7 @@ export function Panel({ durum, kok = 'https://www.sahibinden.com' }: { durum: Pa
               : <div><button class="tekrar" data-rol="tekrar" onClick={durum.tekrar}>Tekrar dene</button></div>}
           </div>
         )}
-        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} kok={kok} />}
+        {durum.asama === 'hazir' && <Sonuc s={durum.sonuc} alternatifler={durum.alternatifler} benzerler={durum.benzerler} paylasim={durum.paylasim} kok={kok} />}
       </div>
     </div>
   )
@@ -73,7 +77,16 @@ function AnahtarCagrisi() {
   )
 }
 
-function Sonuc({ s, alternatifler, benzerler, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; kok: string }) {
+// "3 saat önce" gibi kaba bir yaş. Dakika hassasiyeti kimsenin işine yaramıyor,
+// "ne kadar bayat" sorusunun cevabı yeterli.
+export function yasMetni(ts: number, simdi = Date.now()): string {
+  const dk = Math.max(0, Math.round((simdi - ts) / 60000))
+  if (dk < 60) return `${dk} dakika önce`
+  const saat = Math.round(dk / 60)
+  return saat < 24 ? `${saat} saat önce` : `${Math.round(saat / 24)} gün önce`
+}
+
+function Sonuc({ s, alternatifler, benzerler, paylasim, kok }: { s: AnalysisResult; alternatifler?: Alternatif[]; benzerler?: ListRow[]; paylasim?: { ts: number }; kok: string }) {
   const renk = skorRenk(s.skor)
   return (
     <>
@@ -90,6 +103,14 @@ function Sonuc({ s, alternatifler, benzerler, kok }: { s: AnalysisResult; altern
           </div>
         </div>
       </div>
+
+      {paylasim && (
+        <div class="bolum paylasimNot" data-rol="paylasim-not">
+          Bu değerlendirme paylaşılan önbellekten geldi — başka bir kullanıcının kendi
+          anahtarıyla {yasMetni(paylasim.ts)} üretildi. Fiyat konumu, kilometre
+          değerlendirmesi ve pazarlık hedefi senin kendi verinle hesaplandı.
+        </div>
+      )}
 
       {s.chipler.length > 0 && (
         <div class="bolum" data-rol="chip-bolum">
